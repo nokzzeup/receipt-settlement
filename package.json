@@ -1,0 +1,23 @@
+{
+  "name": "receipt-settlement",
+  "private": true,
+  "description": "영수증 정산 — 실행 명령 모음 (자세한 건 README.md)",
+  "engines": {
+    "node": ">=22.22.0"
+  },
+  "scripts": {
+    "setup": "node scripts/setup.mjs",
+    "dev": "node scripts/dev.mjs",
+    "dev:host": "node scripts/dev.mjs --host",
+    "test": "node scripts/py.mjs -m pytest",
+    "db:upgrade": "node scripts/py.mjs -m alembic upgrade head",
+    "db:revision": "node scripts/py.mjs -m alembic revision --autogenerate -m",
+    "db:check": "node scripts/py.mjs -m alembic check",
+    "gen:api": "npm --prefix frontend run gen:api",
+    "build": "npm --prefix frontend run build",
+    "lint": "npm --prefix frontend run lint"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.5"
+  }
+}

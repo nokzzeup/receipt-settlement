@@ -1,0 +1,10 @@
+# Runtime dependencies, pinned so every teammate gets the same versions.
+# KEEP ASCII-ONLY: pip reads this file with the OS encoding (cp949 on Korean Windows).
+# DB is Python's built-in SQLite, no driver needed (add psycopg[binary] only for PostgreSQL).
+fastapi==0.142.2
+uvicorn[standard]==0.54.0
+SQLAlchemy==2.0.54
+alembic==1.20.0
+pydantic==2.13.5
+pydantic-settings==2.15.0
+tzdata==2026.4               # Windows has no tz database; needed for ZoneInfo("Asia/Seoul")

@@ -1,0 +1,8 @@
+# Windows/Mac이 섞인 팀: 줄바꿈을 LF로 통일 (CRLF 때문에 파일 전체가 변경된 것처럼 보이는 문제 방지)
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.ico binary

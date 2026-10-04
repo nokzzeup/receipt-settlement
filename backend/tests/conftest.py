@@ -1,0 +1,63 @@
+"""공통 테스트 픽스처.
+
+- 기본: 테스트 실행마다 임시 SQLite 파일을 새로 만들어 쓴다 → 개발 DB(backend/data/app.db)는 안 건드림
+- TEST_DATABASE_URL을 지정하면 그 DB 사용 (예: PostgreSQL 호환 확인용. DB 이름은 _test로 끝나야 하고 미리 만들어둘 것)
+- 테스트 하나가 끝나면 그 안에서 한 DB 변경은 전부 롤백 → 테스트끼리 서로 영향 없음
+"""
+
+from collections.abc import Iterator
+
+import pytest
+from fastapi.testclient import TestClient
+from sqlalchemy import Engine, make_url
+from sqlalchemy.orm import Session
+
+import app.models  # noqa: F401  모든 모델을 Base.metadata에 등록
+from app.core.config import settings
+from app.db.base import Base
+from app.db.session import create_db_engine, get_db
+from app.main import app
+
+
+@pytest.fixture(scope="session")
+def engine(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Engine]:
+    if settings.test_database_url:
+        url = make_url(settings.test_database_url)
+        # 실수로 개발 DB를 비우는 사고 방지
+        if not (url.database or "").endswith("_test"):
+            pytest.exit(f"TEST_DATABASE_URL의 DB 이름은 _test로 끝나야 합니다: {url.database}", returncode=1)
+    else:
+        url = make_url(f"sqlite:///{(tmp_path_factory.mktemp('db') / 'test.db').as_posix()}")
+
+    engine = create_db_engine(url)
+    Base.metadata.drop_all(engine)
+    Base.metadata.create_all(engine)
+    yield engine
+    engine.dispose()
+
+
+@pytest.fixture
+def db_session(engine: Engine) -> Iterator[Session]:
+    """테스트 끝나면 롤백되는 세션. 테스트 코드 안에서 commit() 해도 바깥 트랜잭션이 롤백한다."""
+    connection = engine.connect()
+    transaction = connection.begin()
+    session = Session(bind=connection, join_transaction_mode="create_savepoint")
+    try:
+        yield session
+    finally:
+        session.close()
+        transaction.rollback()
+        connection.close()
+
+
+@pytest.fixture
+def client(db_session: Session) -> Iterator[TestClient]:
+    """API 테스트용 클라이언트. 앱의 get_db를 테스트 세션으로 바꿔 끼운다."""
+
+    def override_get_db() -> Iterator[Session]:
+        yield db_session
+
+    app.dependency_overrides[get_db] = override_get_db
+    with TestClient(app) as test_client:
+        yield test_client
+    app.dependency_overrides.clear()
