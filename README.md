@@ -36,29 +36,36 @@ git clone https://github.com/nokzzeup/receipt-settlement.git
 cd receipt-settlement
 ```
 
-**6. 준비 명령** (2~3분)
-```
-npm run setup
-```
-마지막에 `준비 완료!`가 나오면 끝. 파이썬 가상환경·패키지·DB·프론트 패키지를 전부 알아서 설치한다.
+**6. 실행** — 아래 "매일: 실행"과 같음. 처음 한 번은 설치(파이썬 가상환경·패키지·DB·프론트 패키지)를 자동으로 하느라 2~3분 걸린다.
 
 ---
 
 ## 매일: 실행
 
+### 더블클릭 (제일 쉬움)
+| Windows | Mac |
+|---|---|
+| `start-windows.bat` 더블클릭 | `start-mac.command` 더블클릭 |
+
+- 처음이거나 `git pull`로 패키지가 바뀌었으면 **설치부터 자동으로** 한다
+- 서버가 다 뜨면 **브라우저가 자동으로** http://localhost:5173 을 연다 → 화면 맨 위 **`DEV · 백엔드: API ok · DB ok`** 확인
+- 이미 켜져 있을 때 또 더블클릭하면 브라우저만 다시 연다
+- **끄기: 그 검은 창(터미널)을 닫기**
+- Mac에서 처음 더블클릭할 때 "확인되지 않은 개발자" 경고가 뜨면: 파일 우클릭 → 열기
+
+### 터미널에서
 ```
-npm run dev
+npm start        # 더블클릭과 같음 (필요하면 설치 → 실행 → 브라우저 열기)
+npm run dev      # 실행만 (브라우저는 직접 열기)
 ```
-- http://localhost:5173 접속 → 화면 맨 위에 **`DEV · 백엔드: API ok · DB ok`** 가 보이면 정상
 - 백엔드 API 문서: http://localhost:8000/docs
 - 코드를 저장하면 백엔드·프론트 둘 다 자동으로 반영됨
 - 끄기: `Ctrl + C`
-
-터미널에 `[api]`(백엔드)와 `[web]`(프론트) 로그가 같이 나온다.
+- 터미널에 `[api]`(백엔드)와 `[web]`(프론트) 로그가 같이 나온다
 
 ### Git으로 같이 작업하기
 ```
-git pull                       # 작업 시작 전에 항상 (패키지가 바뀌었으면 npm run setup 도)
+git pull                       # 작업 시작 전에 항상 (패키지가 바뀌었으면 다음 실행 때 자동 설치)
 git add -A
 git commit -m "무엇을 했는지"
 git push                       # 거절되면 git pull 후 다시 push
@@ -70,6 +77,7 @@ git push                       # 거절되면 git pull 후 다시 push
 
 | 명령 | 하는 일 |
 |---|---|
+| `npm start` | 필요하면 설치 → 백엔드 + 프론트 실행 → 브라우저 열기 (더블클릭 실행과 같음) |
 | `npm run dev` | 백엔드 + 프론트 실행 |
 | `npm run dev:host` | 폰에서도 접속 가능하게 실행 (아래 "폰에서 테스트") |
 | `npm test` | 백엔드 테스트 |
@@ -78,7 +86,7 @@ git push                       # 거절되면 git pull 후 다시 push
 | `npm run db:check` | 모델과 마이그레이션이 어긋났는지 검사 |
 | `npm run gen:api` | 프론트 API 타입 갱신 (`npm run dev` 실행 중일 때) |
 | `npm run build` / `npm run lint` | 프론트 빌드 / 린트 (PR 전에) |
-| `npm run setup` | git pull 후 패키지가 바뀌었으면 다시 실행 |
+| `npm run setup` | 설치만 따로 (더블클릭/`npm start`는 필요할 때 알아서 함) |
 
 - **DB 내용 보기**: 무료 프로그램 [DB Browser for SQLite](https://sqlitebrowser.org)로 `backend/data/app.db` 열기
 - **DB 초기화**: `npm run dev`를 끄고 `backend/data/` 안의 `app.db*` 파일을 지운 뒤 다시 `npm run dev`
@@ -99,7 +107,9 @@ git push                       # 거절되면 git pull 후 다시 push
 
 ```
 .
-├── package.json              실행 명령 모음 (npm run setup / dev / test ...)
+├── start-windows.bat         더블클릭 실행 (Windows)
+├── start-mac.command         더블클릭 실행 (Mac)
+├── package.json              실행 명령 모음 (npm start / dev / test ...)
 ├── docs/                     PROJECT.md(범위·규칙·모델), DECISIONS.md(설계 결정과 이유)
 ├── scripts/                  위 명령이 부르는 실행 스크립트 + 정확도 측정 등 유틸
 ├── .env.example              환경변수 견본 (setup이 .env로 복사, .env는 커밋 금지)
@@ -176,7 +186,8 @@ git push                       # 거절되면 git pull 후 다시 push
 | setup에서 `Python 3.13(또는 3.12)이 필요합니다` | 3.13 설치 후 **터미널을 새로 열고** 다시 `npm run setup` |
 | setup에서 `Node.js ... 22.22 이상이 필요합니다` | nodejs.org에서 24 LTS 설치 |
 | `npm run dev`에서 `먼저 npm run setup 을 실행하세요` | 말 그대로 setup부터 |
-| `address already in use` / 8000·5173 포트 사용 중 | 다른 터미널에 이미 `npm run dev`가 떠 있음 → 그 창에서 Ctrl+C |
+| `address already in use` / 8000·5173 포트 사용 중 | 다른 창에 이미 실행 중 → 그 창을 닫고 다시 실행 |
+| (Windows) 실행 창 안을 클릭했더니 서버가 멈춘 것 같음 | 창이 '선택 모드'로 바뀐 것 → `Esc`를 누르면 다시 진행 |
 | 화면 위 표시줄이 `연결 실패` | 터미널의 `[api]` 로그에 에러가 있는지 확인 |
 | `database is locked` | DB Browser for SQLite에서 저장 안 한 변경이 있으면 생김 → 저장하거나 닫기 |
 | `git push`가 `rejected`로 거절됨 | 그 사이 팀원이 먼저 올린 것 → `git pull` 후 다시 `git push` |

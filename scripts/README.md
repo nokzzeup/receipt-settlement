@@ -5,6 +5,7 @@
 
 | 파일 | 하는 일 |
 |---|---|
+| `launch.mjs` | 더블클릭 실행(`start-windows.bat`/`start-mac.command`)과 `npm start` — 필요하면 setup → dev → 브라우저 열기 |
 | `setup.mjs` | `npm run setup` — .env, 파이썬 가상환경·패키지, DB 생성, npm 패키지 |
 | `dev.mjs` | `npm run dev` — 아래 두 개를 터미널 하나에서 같이 실행 |
 | `backend.mjs` | 마이그레이션 적용 후 FastAPI 실행 (자동 재시작) |

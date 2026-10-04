@@ -40,6 +40,8 @@ export default defineConfig(({ mode }) => {
     ],
     server: {
       port: 5173,
+      strictPort: true, // 5173이 이미 쓰이면 다른 포트로 몰래 바꾸지 말고 에러 → 주소가 항상 같음
+      strictPort: true, // 5173이 이미 쓰이면 다른 포트로 몰래 바꾸지 말고 에러 (주소가 항상 같게)
       // /api 요청을 백엔드로 넘김 → 같은 출처라 CORS 불필요, 폰에서 접속해도 그대로 동작
       proxy: {
         '/api': {

@@ -41,6 +41,9 @@
 
 ### 실행 구조
 - 루트 `package.json`의 npm 명령 하나로 백엔드와 프론트를 같이 실행 (`concurrently`, Ctrl+C 한 번에 둘 다 종료)
+- 더블클릭 실행 파일(`start-windows.bat`, `start-mac.command`): 패키지 목록(requirements·package-lock)의 지문을 `backend/.venv/setup-stamp.txt`에 남겨두고, 바뀌었으면 실행 전에 setup을 자동으로 다시 한다 → `git pull` 후에도 더블클릭만 하면 됨
+- `start-windows.bat`은 영어로만 쓴다 (cmd.exe가 OS 인코딩으로 읽음). 한글 안내는 Node 스크립트(`scripts/launch.mjs`)가 출력
+- Vite는 `strictPort`: 5173이 이미 쓰이면 다른 포트로 바꾸지 않고 에러 → 주소가 항상 같음
 - 프론트는 `/api` 요청을 Vite 프록시로 백엔드(127.0.0.1:8000)에 넘긴다 → CORS 불필요, 폰에서 접속해도 그대로 동작
 
 ## 아직 정할 것

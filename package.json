@@ -6,6 +6,7 @@
     "node": ">=22.22.0"
   },
   "scripts": {
+    "start": "node scripts/launch.mjs",
     "setup": "node scripts/setup.mjs",
     "dev": "node scripts/dev.mjs",
     "dev:host": "node scripts/dev.mjs --host",

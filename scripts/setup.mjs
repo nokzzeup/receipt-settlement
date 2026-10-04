@@ -3,7 +3,18 @@
 import { spawnSync } from 'node:child_process'
 import { copyFileSync, existsSync, rmSync } from 'node:fs'
 import path from 'node:path'
-import { FRONTEND, ROOT, VENV_DIR, VENV_PYTHON, fail, isWindows, run, runNpm, runPython } from './lib.mjs'
+import {
+  FRONTEND,
+  ROOT,
+  VENV_DIR,
+  VENV_PYTHON,
+  fail,
+  isWindows,
+  run,
+  runNpm,
+  runPython,
+  writeSetupStamp,
+} from './lib.mjs'
 
 // 3.14 이상: 3단계 PaddleOCR(paddlepaddle)가 아직 지원 안 함 / 3.15: pydantic도 미지원
 const SUPPORTED_PYTHON = ['3.13', '3.12']
@@ -87,4 +98,5 @@ step('npm 패키지 설치 (루트 + frontend)')
 runNpm(['ci', '--no-audit', '--no-fund'], ROOT)
 runNpm(['ci', '--no-audit', '--no-fund'], FRONTEND)
 
-console.log('\n준비 완료! 이제 `npm run dev` 로 실행하고 http://localhost:5173 을 여세요.\n')
+writeSetupStamp() // 패키지 목록이 다시 바뀌기 전까지 더블클릭 실행이 setup을 건너뜀
+console.log('\n준비 완료! 이제 `npm run dev`(또는 start 파일 더블클릭)로 실행하고 http://localhost:5173 을 여세요.\n')
