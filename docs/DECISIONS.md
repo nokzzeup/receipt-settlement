@@ -44,6 +44,8 @@
 - 더블클릭 실행 파일(`start-windows.bat`, `start-mac.command`): 패키지 목록(requirements·package-lock)의 지문을 `backend/.venv/setup-stamp.txt`에 남겨두고, 바뀌었으면 실행 전에 setup을 자동으로 다시 한다 → `git pull` 후에도 더블클릭만 하면 됨
 - `start-windows.bat`은 영어로만 쓴다 (cmd.exe가 OS 인코딩으로 읽음). 한글 안내는 Node 스크립트(`scripts/launch.mjs`)가 출력
 - Vite는 `strictPort`: 5173이 이미 쓰이면 다른 포트로 바꾸지 않고 에러 → 주소가 항상 같음
+- Vite는 `127.0.0.1`에 고정: 기본값 `localhost`는 Windows에서 IPv6(`::1`)로만 열려서, IPv4로 확인하는 실행 스크립트가 서버를 못 알아보는 문제가 있었음 (2026-10-04). 브라우저 주소는 `http://127.0.0.1:5173` (localhost도 접속은 됨)
+- 실행·설치 전에 포트 8000/5173을 먼저 점검: 다른 창에 서버가 켜져 있으면(Windows는 실행 중인 파일을 못 지워서 `npm ci`가 중간에 실패) 또는 Windows가 포트를 예약해둔 경우 이유를 한국어로 알려주고 멈춤
 - 프론트는 `/api` 요청을 Vite 프록시로 백엔드(127.0.0.1:8000)에 넘긴다 → CORS 불필요, 폰에서 접속해도 그대로 동작
 
 ## 아직 정할 것

@@ -48,8 +48,9 @@ cd receipt-settlement
 | `start-windows.bat` 더블클릭 | `start-mac.command` 더블클릭 |
 
 - 처음이거나 `git pull`로 패키지가 바뀌었으면 **설치부터 자동으로** 한다
-- 서버가 다 뜨면 **브라우저가 자동으로** http://localhost:5173 을 연다 → 화면 맨 위 **`DEV · 백엔드: API ok · DB ok`** 확인
+- 서버가 다 뜨면 **브라우저가 자동으로** http://127.0.0.1:5173 을 연다 (localhost:5173도 같음) → 화면 맨 위 **`DEV · 백엔드: API ok · DB ok`** 확인
 - 이미 켜져 있을 때 또 더블클릭하면 브라우저만 다시 연다
+- 실패하면 창이 `계속하려면 아무 키나 누르십시오`에서 멈춘다 → **그 위의 메시지**를 복사해서 공유
 - **끄기: 그 검은 창(터미널)을 닫기**
 - Mac에서 처음 더블클릭할 때 "확인되지 않은 개발자" 경고가 뜨면: 파일 우클릭 → 열기
 
@@ -186,7 +187,8 @@ git push                       # 거절되면 git pull 후 다시 push
 | setup에서 `Python 3.13(또는 3.12)이 필요합니다` | 3.13 설치 후 **터미널을 새로 열고** 다시 `npm run setup` |
 | setup에서 `Node.js ... 22.22 이상이 필요합니다` | nodejs.org에서 24 LTS 설치 |
 | `npm run dev`에서 `먼저 npm run setup 을 실행하세요` | 말 그대로 setup부터 |
-| `address already in use` / 8000·5173 포트 사용 중 | 다른 창에 이미 실행 중 → 그 창을 닫고 다시 실행 |
+| `포트 8000/5173를 이미 다른 프로그램이 쓰고 있어요` | 다른 창에 서버가 켜져 있음 → 그 창을 닫고 다시 실행. 켜둔 창이 없으면 PC 재시작 |
+| `Windows가 포트 ...를 예약해둬서 쓸 수 없어요` | Docker·WSL 설치 후 생기는 문제. 관리자 PowerShell에서 `net stop winnat` → `net start winnat` 후 다시 실행 |
 | (Windows) 실행 창 안을 클릭했더니 서버가 멈춘 것 같음 | 창이 '선택 모드'로 바뀐 것 → `Esc`를 누르면 다시 진행 |
 | 화면 위 표시줄이 `연결 실패` | 터미널의 `[api]` 로그에 에러가 있는지 확인 |
 | `database is locked` | DB Browser for SQLite에서 저장 안 한 변경이 있으면 생김 → 저장하거나 닫기 |

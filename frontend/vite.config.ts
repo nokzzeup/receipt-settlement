@@ -39,9 +39,11 @@ export default defineConfig(({ mode }) => {
       }),
     ],
     server: {
+      // localhost 대신 IPv4 고정: Windows에선 localhost가 IPv6(::1)로 풀려서 OS마다 동작이 달라짐
+      // (npm run dev:host 의 --host 가 이 값을 덮어써서 폰 접속도 그대로 됨)
+      host: '127.0.0.1',
       port: 5173,
       strictPort: true, // 5173이 이미 쓰이면 다른 포트로 몰래 바꾸지 말고 에러 → 주소가 항상 같음
-      strictPort: true, // 5173이 이미 쓰이면 다른 포트로 몰래 바꾸지 말고 에러 (주소가 항상 같게)
       // /api 요청을 백엔드로 넘김 → 같은 출처라 CORS 불필요, 폰에서 접속해도 그대로 동작
       proxy: {
         '/api': {

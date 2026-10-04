@@ -2,6 +2,7 @@
 import { spawn, spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import net from 'node:net'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -14,9 +15,16 @@ export const VENV_PYTHON = isWindows
   ? path.join(VENV_DIR, 'Scripts', 'python.exe')
   : path.join(VENV_DIR, 'bin', 'python')
 
-export const APP_URL = 'http://localhost:5173'
-// Vite(5173)를 거쳐 백엔드까지 확인 → 둘 다 떠 있어야 OK
-const HEALTH_URL = 'http://127.0.0.1:5173/api/v1/health'
+// 프론트는 IPv4(127.0.0.1)에 고정 (vite.config.ts). localhost는 Windows에서 IPv6(::1)로 풀려서 OS마다 동작이 달라짐
+export const APP_URL = 'http://127.0.0.1:5173'
+// Vite(5173)를 거쳐 백엔드까지 확인 → 둘 다 떠 있어야 OK.
+// IPv6 주소도 보는 이유: 이전 버전(localhost 사용)으로 켜둔 서버가 Windows에선 ::1에 떠 있음
+const HEALTH_URLS = ['http://127.0.0.1:5173/api/v1/health', 'http://[::1]:5173/api/v1/health']
+const PORTS = [
+  { host: '127.0.0.1', port: 8000, label: '백엔드' },
+  { host: '127.0.0.1', port: 5173, label: '프론트' },
+  { host: '::1', port: 5173, label: '프론트' },
+]
 
 // 파이썬 출력을 UTF-8로 고정 → Windows에서도 한글 로그가 깨지지 않음
 const PYTHON_ENV = { ...process.env, PYTHONUTF8: '1', PYTHONUNBUFFERED: '1' }
@@ -119,12 +127,60 @@ export function runNpm(args, cwd) {
 // ---------------------------------------------------------------------------
 /** 백엔드·프론트가 둘 다 응답하는지 */
 export async function isAppRunning() {
-  try {
-    const response = await fetch(HEALTH_URL, { signal: AbortSignal.timeout(1500) })
-    return response.ok
-  } catch {
-    return false
+  const results = await Promise.all(
+    HEALTH_URLS.map(async (url) => {
+      try {
+        const response = await fetch(url, { signal: AbortSignal.timeout(1500) })
+        return response.ok
+      } catch {
+        return false
+      }
+    }),
+  )
+  return results.some(Boolean)
+}
+
+/** 포트를 잠깐 열어보고 결과 코드를 돌려준다 (null = 사용 가능) */
+function probePort(host, port) {
+  return new Promise((resolve) => {
+    const server = net.createServer()
+    server.once('error', (error) => resolve(error.code ?? 'ERROR'))
+    server.listen({ host, port }, () => server.close(() => resolve(null)))
+  })
+}
+
+/**
+ * 서버를 띄우거나 설치(npm ci)하기 전에 포트 확인. 문제가 있으면 이유를 설명하고 종료한다.
+ * (Windows는 실행 중인 서버의 파일을 지울 수 없어서, 켜진 채로 설치하면 중간에 실패함)
+ */
+export async function ensurePortsFree() {
+  const inUse = new Set()
+  const reserved = new Set()
+  for (const { host, port, label } of PORTS) {
+    const code = await probePort(host, port)
+    if (code === 'EADDRINUSE') inUse.add(`${port}(${label})`)
+    else if (code === 'EACCES') reserved.add(`${port}(${label})`)
+    // 그 외(EADDRNOTAVAIL, EAFNOSUPPORT 등)는 그 주소가 없는 PC(IPv6 꺼짐 등)라서 무시
   }
+  if (!inUse.size && !reserved.size) return
+
+  const lines = []
+  if (inUse.size) {
+    lines.push(
+      `포트 ${[...inUse].join(', ')}를 이미 다른 프로그램이 쓰고 있어요.`,
+      '→ 다른 창에 서버(npm run dev, start 파일)가 켜져 있으면 그 창을 닫고 다시 실행하세요.',
+      '→ 켜둔 창이 없는데도 그러면 PC를 재시작해 보세요.',
+    )
+  }
+  if (reserved.size) {
+    lines.push(
+      `Windows가 포트 ${[...reserved].join(', ')}를 예약해둬서 쓸 수 없어요 (Docker·WSL을 설치하면 생기는 문제).`,
+      '→ 관리자 권한 PowerShell에서 아래 두 줄 실행 후 다시 시도:',
+      '     net stop winnat',
+      '     net start winnat',
+    )
+  }
+  fail(lines.join('\n        '))
 }
 
 /** 기본 브라우저로 열기. 실패해도(브라우저 없는 환경 등) 주소만 안내하고 넘어간다 */

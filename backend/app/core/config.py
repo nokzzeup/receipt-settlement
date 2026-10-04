@@ -37,7 +37,7 @@ class Settings(BaseSettings):
     storage_dir: Path = Path("storage")
 
     # 프론트를 다른 출처(origin)에서 띄울 때만 필요. 기본 개발 흐름은 Vite 프록시라 CORS 불필요
-    cors_origins: list[str] = ["http://localhost:5173"]
+    cors_origins: list[str] = ["http://127.0.0.1:5173", "http://localhost:5173"]
 
     @property
     def storage_path(self) -> Path:

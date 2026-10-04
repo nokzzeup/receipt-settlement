@@ -8,6 +8,7 @@ import {
   ROOT,
   VENV_DIR,
   VENV_PYTHON,
+  ensurePortsFree,
   fail,
   isWindows,
   run,
@@ -57,6 +58,8 @@ if (major < 22 || (major === 22 && minor < 22)) {
   fail(`Node.js ${process.versions.node} → 22.22 이상이 필요합니다 (nodejs.org에서 24 LTS 설치)`)
 }
 console.log(`Node.js ${process.versions.node} OK`)
+// 서버가 켜진 채로 설치하면 Windows에선 사용 중인 파일을 못 지워서 npm ci가 중간에 실패함 → 먼저 확인
+await ensurePortsFree()
 
 // ---------------------------------------------------------------------------
 step('.env 준비')

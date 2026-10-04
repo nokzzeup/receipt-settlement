@@ -2,9 +2,10 @@
 // npm run dev:host — 같은 와이파이의 폰에서도 접속 가능하게 실행
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { ROOT, requireSetup, runForeground } from './lib.mjs'
+import { ROOT, ensurePortsFree, requireSetup, runForeground } from './lib.mjs'
 
 requireSetup()
+await ensurePortsFree()
 
 const host = process.argv.includes('--host')
 const pkgDir = path.join(ROOT, 'node_modules', 'concurrently')
