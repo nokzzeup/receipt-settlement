@@ -5,6 +5,9 @@
 
 > 📄 범위·규칙·모델: [docs/PROJECT.md](docs/PROJECT.md) · 설계 결정과 이유: [docs/DECISIONS.md](docs/DECISIONS.md)
 
+**지금 되는 것 (2단계까지)**: 회원가입·로그인 → 조직 만들기/초대 코드로 참여 → 역할·계정과목(예산) 관리 →
+영수증 촬영·업로드 → 인식 결과(지금은 Mock OCR 고정 샘플) 확인·수정 → 임시 저장 / 제출 → 지출 목록
+
 | 구성 | 기술 |
 |---|---|
 | frontend | React 19 + Vite 8 + TypeScript, react-router 8, TanStack Query 5, vite-plugin-pwa |
@@ -121,19 +124,22 @@ git push                       # 거절되면 git pull 후 다시 push
 │   ├── app/
 │   │   ├── main.py           FastAPI 앱
 │   │   ├── core/             설정(config.py), 시간대(timezone.py)
-│   │   ├── api/              라우터 — v1/health.py, v1/router.py, deps.py      (이성민)
+│   │   ├── api/              라우터 — v1/*.py (auth, orgs, categories, expenses), deps.py(권한)  (이성민)
+│   │   ├── schemas/          API 요청·응답 스키마 (바뀌면 프론트 gen:api)          (이성민)
+│   │   ├── receipts/         영수증 접수: 이미지 검증·저장, 카드번호 마스킹, OCR 호출  (이성민)
 │   │   ├── db/               Base, 세션, 커스텀 타입, migrations/ (Alembic)     (김도현)
 │   │   ├── models/           도메인 모델 9개                                      (김도현)
 │   │   ├── ocr/              OcrEngine 인터페이스, Mock/Paddle 엔진              (김도현)
-│   │   ├── parsing/          ReceiptFields 스키마 + parse()                       (이성민)
-│   │   ├── classify/         품목 → 계정과목 분류 (4단계)                          (이성민)
+│   │   ├── parsing/          ReceiptFields 스키마 + parse() (1차 규칙 기반)         (이성민)
+│   │   ├── classify/         품목 → 계정과목 분류 (4단계), 기본 계정과목            (이성민)
 │   │   └── settlement/       정산 엔진 (5단계)                                     (이성민)
 │   └── tests/
 ├── frontend/                 React PWA                                              (신율겸)
 │   └── src/
 │       ├── router.tsx        화면 경로 목록
-│       ├── api/              client.ts(타입 있는 fetch), schema.d.ts(자동 생성)
-│       ├── layouts/  pages/  components/
+│       ├── api/              client.ts(타입 있는 fetch), schema.d.ts(자동 생성), 기능별 훅
+│       ├── lib/format.ts     금액·한국시간 표시, 정수 입력 변환
+│       ├── layouts/  pages/  components/  hooks/
 └── dataset/                  테스트 영수증 + 정답 라벨 (형식: dataset/README.md)
 ```
 
@@ -142,20 +148,23 @@ git push                       # 거절되면 git pull 후 다시 push
 ## 팀원별 시작 지점
 
 ### 이성민 — 백엔드 API · 파싱 · 분류 · 정산
-- `backend/app/api/v1/` — 1단계(인증·조직) 완료. 다음은 **2단계**: 계정과목 CRUD, 영수증 업로드 → Mock OCR → 지출 등록. 조직 안 API는 `api/deps.py`의 `CurrentMembership`(멤버 아니면 404) / `require_roles(...)`(역할 아니면 403)를 반드시 거친다
-- `backend/app/parsing/parser.py` — `parse()` 구현. `MockOcrEngine().recognize(b"")` 샘플로 바로 개발 가능
-- `classify/`, `settlement/` — 4·5단계. 정산 엔진은 pytest 필수
+- `backend/app/api/v1/` — 1·2단계 완료. 조직 안 API는 `api/deps.py`의 `CurrentMembership`(멤버 아니면 404) / `require_roles(...)`(역할 아니면 403)를 반드시 거친다
+- `backend/app/parsing/parser.py` — 1차(규칙 기반) 있음. 3단계에서 실제 PaddleOCR 출력을 `tests/test_parser.py`에 케이스로 추가하면서 보강
+- `classify/` — 4단계: 업로드 때 품목 자동 분류 자리는 `receipts/intake.py`에 표시해 둠. `settlement/` — 5단계, pytest 필수
 
 ### 김도현 — DB · OCR · 데이터셋
-- `backend/app/models/` — 모델 검토. 수정하면 `npm run db:revision "설명"` → 생성 파일 검토 → `npm run db:check`
 - `backend/app/ocr/paddle.py` — 3단계 PaddleOCR 엔진. 설치할 버전을 먼저 정해서 팀에 공유 (버전별 API 차이 큼). `.env`의 `OCR_ENGINE=paddle`로 전환
-- `dataset/` — 영수증 수집·라벨링은 지금부터 시작 (형식: `dataset/README.md`)
+  - 업로드되면 `recognize(이미지 바이트)`가 불린다. 들어오는 형식은 JPG·PNG·WEBP(15MB 이하)
+  - 폰 사진은 EXIF 회전 정보만 있고 실제 픽셀은 누워 있는 경우가 많음 → 디코딩할 때 회전이 적용되는지 설치 버전에서 확인
+  - 엔진이 예외를 던져도 업로드는 성공하고 "인식 실패, 직접 입력"으로 처리됨 (로그에 남음)
+- `backend/app/models/` — 모델 수정하면 `npm run db:revision "설명"` → 생성 파일 검토 → `npm run db:check`
+- `dataset/` — 영수증 수집·라벨링 (형식: `dataset/README.md`)
 
 ### 신율겸 — 프론트 PWA
-- `frontend/src/pages/` — 로그인·조직 선택·조직 설정은 동작함(1단계). 나머지 화면 UI. 경로는 `src/router.tsx` 상단 주석에 정리
-- `frontend/src/index.css` — 색·간격 변수(`:root`) 바꾸면 전체 반영
+- 동작하는 화면: 로그인, 조직 선택, 조직 설정(초대 코드·역할·계정과목), 지출 목록, 영수증 촬영, 지출 확인·수정(`ExpenseDetailPage` + `components/ExpenseForm.tsx`). 남은 화면: 정산 현황(5단계)
+- 디자인은 `frontend/src/index.css` — 색·간격 변수(`:root`) 바꾸면 전체 반영. 화면 구조는 그대로 두고 스타일만 바꿔도 됨
 - `frontend/vite.config.ts` — PWA 앱 이름·색, `frontend/public/` 아이콘 교체
-- API 호출은 `src/api/client.ts`의 `api.GET/POST(...)` + `unwrap()` + TanStack Query 훅 (`src/api/orgs.ts`가 예시). 로그인 토큰은 자동으로 붙고, 401이면 로그인 화면으로 이동
+- API 호출은 `src/api/client.ts`의 `api.GET/POST(...)` + `unwrap()` + TanStack Query 훅 (`src/api/expenses.ts`가 예시). 로그인 토큰은 자동으로 붙고, 401이면 로그인 화면으로 이동
 - 백엔드 API가 바뀌면 `npm run gen:api` (백엔드 켜둔 상태) → `src/api/schema.d.ts` 갱신
 
 ---

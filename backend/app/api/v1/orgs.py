@@ -2,6 +2,7 @@
 
 권한 요약
 - 조직 생성자는 총무(TREASURER), 초대 코드로 들어온 사람은 구성원(MEMBER)
+- 조직을 만들면 기본 계정과목(app/classify/defaults.py)이 같이 만들어진다
 - 조직 정보·구성원 목록: 그 조직 구성원 누구나 (구성원이 아니면 404)
 - 초대 코드 보기·재발급, 역할 변경: 총무만 (403)
 - 총무는 항상 1명 이상 남아야 함 (마지막 총무의 역할은 못 바꿈)
@@ -13,7 +14,8 @@ from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import func, select
 
 from app.api.deps import CurrentMembership, CurrentUser, DbSession, TreasurerMembership
-from app.models import Membership, MembershipRole, Organization, User
+from app.classify.defaults import DEFAULT_CATEGORY_NAMES
+from app.models import Category, Membership, MembershipRole, Organization, User
 from app.schemas.org import InviteCodeOut, JoinRequest, MemberOut, OrgCreate, OrgDetail, OrgSummary, RoleUpdate
 
 router = APIRouter(prefix="/orgs", tags=["orgs"])
@@ -75,10 +77,11 @@ def list_my_orgs(user: CurrentUser, db: DbSession) -> list[OrgSummary]:
 
 @router.post("", status_code=status.HTTP_201_CREATED)
 def create_org(body: OrgCreate, user: CurrentUser, db: DbSession) -> OrgDetail:
-    """조직 생성 → 만든 사람이 총무"""
+    """조직 생성 → 만든 사람이 총무. 기본 계정과목도 같이 만든다"""
     org = Organization(name=body.name, invite_code=_new_invite_code(db), created_by=user)
     membership = Membership(organization=org, user=user, role=MembershipRole.TREASURER)
-    db.add_all([org, membership])
+    categories = [Category(organization=org, name=name) for name in DEFAULT_CATEGORY_NAMES]
+    db.add_all([org, membership, *categories])
     db.commit()
     db.refresh(org)
     return _org_detail(org, membership)

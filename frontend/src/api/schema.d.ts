@@ -93,7 +93,7 @@ export interface paths {
         put?: never;
         /**
          * Create Org
-         * @description 조직 생성 → 만든 사람이 총무
+         * @description 조직 생성 → 만든 사람이 총무. 기본 계정과목도 같이 만든다
          */
         post: operations["create_org_api_v1_orgs_post"];
         delete?: never;
@@ -196,10 +196,305 @@ export interface paths {
         patch: operations["update_member_role_api_v1_orgs__org_id__members__membership_id__patch"];
         trace?: never;
     };
+    "/api/v1/orgs/{org_id}/categories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Categories
+         * @description 만든 순서대로
+         */
+        get: operations["list_categories_api_v1_orgs__org_id__categories_get"];
+        put?: never;
+        /** Create Category */
+        post: operations["create_category_api_v1_orgs__org_id__categories_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{org_id}/categories/{category_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Category */
+        delete: operations["delete_category_api_v1_orgs__org_id__categories__category_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Category */
+        patch: operations["update_category_api_v1_orgs__org_id__categories__category_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/orgs/{org_id}/receipts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload Receipt
+         * @description 영수증 사진 업로드 → OCR → 작성 중(DRAFT) 지출 생성. 인식에 실패해도 빈 값으로 만들어진다
+         */
+        post: operations["upload_receipt_api_v1_orgs__org_id__receipts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{org_id}/expenses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Expenses
+         * @description 내가 볼 수 있는 지출 (최근 등록 순)
+         */
+        get: operations["list_expenses_api_v1_orgs__org_id__expenses_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{org_id}/expenses/{expense_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Expense */
+        get: operations["get_expense_api_v1_orgs__org_id__expenses__expense_id__get"];
+        /**
+         * Update Expense
+         * @description 확인·수정한 내용 저장 (작성 중일 때만). 품목은 보낸 목록으로 통째로 교체
+         */
+        put: operations["update_expense_api_v1_orgs__org_id__expenses__expense_id__put"];
+        post?: never;
+        /**
+         * Delete Expense
+         * @description 작성 중 지출 삭제 (영수증 기록·원본 이미지도 같이)
+         */
+        delete: operations["delete_expense_api_v1_orgs__org_id__expenses__expense_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{org_id}/expenses/{expense_id}/submit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Submit Expense
+         * @description 제출 → 승인 대기. 저장된 내용 기준으로 빠진 값이 있으면 422 (무엇이 빠졌는지 메시지로)
+         */
+        post: operations["submit_expense_api_v1_orgs__org_id__expenses__expense_id__submit_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{org_id}/expenses/{expense_id}/image": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Receipt Image
+         * @description 영수증 원본 이미지 (지출을 볼 수 있는 사람만)
+         */
+        get: operations["get_receipt_image_api_v1_orgs__org_id__expenses__expense_id__image_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** Body_upload_receipt_api_v1_orgs__org_id__receipts_post */
+        Body_upload_receipt_api_v1_orgs__org_id__receipts_post: {
+            /**
+             * Image
+             * @description 영수증 사진 (JPG·PNG·WEBP, 15MB 이하)
+             */
+            image: string;
+        };
+        /** CategoryCreate */
+        CategoryCreate: {
+            /** Name */
+            name: string;
+            /** Budget Amount */
+            budget_amount?: number | null;
+        };
+        /** CategoryOut */
+        CategoryOut: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Budget Amount */
+            budget_amount: number | null;
+        };
+        /**
+         * CategorySource
+         * @enum {string}
+         */
+        CategorySource: "AUTO" | "MANUAL";
+        /**
+         * CategoryUpdate
+         * @description 보낸 필드만 바뀐다. budget_amount: null 을 보내면 예산 해제
+         */
+        CategoryUpdate: {
+            /** Name */
+            name?: string | null;
+            /** Budget Amount */
+            budget_amount?: number | null;
+        };
+        /** ExpenseDetail */
+        ExpenseDetail: {
+            /** Id */
+            id: number;
+            status: components["schemas"]["ExpenseStatus"];
+            /** Reject Reason */
+            reject_reason: string | null;
+            /** Reimbursed At */
+            reimbursed_at: string | null;
+            /** Amount */
+            amount: number;
+            payer: components["schemas"]["PersonOut"];
+            uploader: components["schemas"]["PersonOut"];
+            receipt: components["schemas"]["ReceiptOut"];
+            /** Items */
+            items: components["schemas"]["ExpenseItemOut"][];
+            /** Can Edit */
+            can_edit: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** ExpenseItemIn */
+        ExpenseItemIn: {
+            /** Name */
+            name: string;
+            /**
+             * Quantity
+             * @default 1
+             */
+            quantity: number;
+            /** Unit Price */
+            unit_price?: number | null;
+            /** Amount */
+            amount: number;
+            /** Category Id */
+            category_id?: number | null;
+        };
+        /** ExpenseItemOut */
+        ExpenseItemOut: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Quantity */
+            quantity: number;
+            /** Unit Price */
+            unit_price: number | null;
+            /** Amount */
+            amount: number;
+            /** Category Id */
+            category_id: number | null;
+            category_source: components["schemas"]["CategorySource"] | null;
+        };
+        /**
+         * ExpenseStatus
+         * @enum {string}
+         */
+        ExpenseStatus: "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED";
+        /**
+         * ExpenseSummary
+         * @description 지출 목록의 한 줄
+         */
+        ExpenseSummary: {
+            /** Id */
+            id: number;
+            status: components["schemas"]["ExpenseStatus"];
+            /** Store Name */
+            store_name: string | null;
+            /** Paid At */
+            paid_at: string | null;
+            /** Amount */
+            amount: number;
+            /** Item Count */
+            item_count: number;
+            /** Uncategorized Count */
+            uncategorized_count: number;
+            payer: components["schemas"]["PersonOut"];
+            /** Reimbursed At */
+            reimbursed_at: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /**
+         * ExpenseUpdate
+         * @description 작성 중 지출 저장 (전체 교체). 품목 목록도 보낸 것으로 통째로 바뀐다
+         */
+        ExpenseUpdate: {
+            /** Store Name */
+            store_name?: string | null;
+            /**
+             * Paid At
+             * @description 시간대 포함 (예: 2026-09-28T14:32:00+09:00)
+             */
+            paid_at?: string | null;
+            /** Total Amount */
+            total_amount?: number | null;
+            /** Payer Membership Id */
+            payer_membership_id: number;
+            /** Items */
+            items: components["schemas"]["ExpenseItemIn"][];
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -292,6 +587,33 @@ export interface components {
             my_role: components["schemas"]["MembershipRole"];
             /** Member Count */
             member_count: number;
+        };
+        /** PersonOut */
+        PersonOut: {
+            /** Membership Id */
+            membership_id: number;
+            /** Name */
+            name: string;
+        };
+        /** ReceiptOut */
+        ReceiptOut: {
+            /** Id */
+            id: number;
+            /** Store Name */
+            store_name: string | null;
+            /** Paid At */
+            paid_at: string | null;
+            /** Total Amount */
+            total_amount: number | null;
+            /** Ocr Failed */
+            ocr_failed: boolean;
+            /** Ocr Text */
+            ocr_text: string[];
+            /**
+             * Uploaded At
+             * Format: date-time
+             */
+            uploaded_at: string;
         };
         /** RoleUpdate */
         RoleUpdate: {
@@ -675,6 +997,393 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MemberOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_categories_api_v1_orgs__org_id__categories_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 조직 id */
+                org_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CategoryOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_category_api_v1_orgs__org_id__categories_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 조직 id */
+                org_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CategoryCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CategoryOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_category_api_v1_orgs__org_id__categories__category_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 조직 id */
+                org_id: number;
+                category_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_category_api_v1_orgs__org_id__categories__category_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 조직 id */
+                org_id: number;
+                category_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CategoryUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CategoryOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upload_receipt_api_v1_orgs__org_id__receipts_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 조직 id */
+                org_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_upload_receipt_api_v1_orgs__org_id__receipts_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExpenseDetail"];
+                };
+            };
+            /** @description 15MB 초과 */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description JPG·PNG·WEBP가 아님 */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_expenses_api_v1_orgs__org_id__expenses_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 조직 id */
+                org_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExpenseSummary"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_expense_api_v1_orgs__org_id__expenses__expense_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 조직 id */
+                org_id: number;
+                expense_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExpenseDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_expense_api_v1_orgs__org_id__expenses__expense_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 조직 id */
+                org_id: number;
+                expense_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExpenseUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExpenseDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_expense_api_v1_orgs__org_id__expenses__expense_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 조직 id */
+                org_id: number;
+                expense_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    submit_expense_api_v1_orgs__org_id__expenses__expense_id__submit_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 조직 id */
+                org_id: number;
+                expense_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExpenseDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_receipt_image_api_v1_orgs__org_id__expenses__expense_id__image_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 조직 id */
+                org_id: number;
+                expense_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 영수증 원본 이미지 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/jpeg": unknown;
+                    "image/png": unknown;
+                    "image/webp": unknown;
                 };
             };
             /** @description Validation Error */

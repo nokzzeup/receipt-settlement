@@ -6,6 +6,7 @@
 """
 
 from collections.abc import Iterator
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -18,6 +19,7 @@ from app.core.config import settings
 from app.db.base import Base
 from app.db.session import create_db_engine, get_db
 from app.main import app
+from app.ocr import MockOcrEngine, get_ocr_engine
 
 # 테스트에선 고정 서명 키 사용 (backend/data/.jwt-secret 파일을 만들지 않게)
 settings.jwt_secret = "test-only-secret-" + "x" * 40
@@ -55,14 +57,23 @@ def db_session(engine: Engine) -> Iterator[Session]:
         connection.close()
 
 
+@pytest.fixture(autouse=True)
+def storage_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """업로드 이미지는 테스트마다 임시 폴더에 저장 (backend/storage는 안 건드림)"""
+    path = tmp_path / "storage"
+    monkeypatch.setattr(settings, "storage_dir", path)
+    return path
+
+
 @pytest.fixture
 def client(db_session: Session) -> Iterator[TestClient]:
-    """API 테스트용 클라이언트. 앱의 get_db를 테스트 세션으로 바꿔 끼운다."""
+    """API 테스트용 클라이언트. 앱의 get_db를 테스트 세션으로, OCR은 .env와 상관없이 Mock으로 바꿔 끼운다."""
 
     def override_get_db() -> Iterator[Session]:
         yield db_session
 
     app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_ocr_engine] = MockOcrEngine
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()
@@ -73,3 +84,30 @@ def signup(client: TestClient, email: str, name: str = "테스트", password: st
     response = client.post("/api/v1/auth/signup", json={"email": email, "password": password, "name": name})
     assert response.status_code == 201, response.text
     return {"Authorization": f"Bearer {response.json()['access_token']}"}
+
+
+# ---------- 조직·영수증 공통 헬퍼 ----------
+
+ORGS = "/api/v1/orgs"
+# 앞부분(매직 바이트)만 JPEG면 됨 — Mock OCR은 이미지 내용을 안 봄
+FAKE_JPEG = b"\xff\xd8\xff\xe0" + b"\x00" * 64
+
+
+def create_org(client: TestClient, headers: dict[str, str], name: str = "컴공 학생회") -> dict:
+    response = client.post(ORGS, json={"name": name}, headers=headers)
+    assert response.status_code == 201, response.text
+    return response.json()
+
+
+def join_org(client: TestClient, headers: dict[str, str], invite_code: str) -> dict:
+    response = client.post(f"{ORGS}/join", json={"invite_code": invite_code}, headers=headers)
+    assert response.status_code == 200, response.text
+    return response.json()
+
+
+def upload_receipt(
+    client: TestClient, headers: dict[str, str], org_id: int, data: bytes = FAKE_JPEG, filename: str = "r.jpg"
+):
+    return client.post(
+        f"{ORGS}/{org_id}/receipts", files={"image": (filename, data, "image/jpeg")}, headers=headers
+    )

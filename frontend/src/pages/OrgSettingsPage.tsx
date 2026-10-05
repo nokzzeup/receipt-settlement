@@ -3,6 +3,7 @@ import { useMe } from '../api/auth'
 import { errorMessage } from '../api/client'
 import { useMembers, useOrg, useRegenerateInviteCode, useUpdateRole } from '../api/orgs'
 import { ROLE_LABELS, type MembershipRole } from '../api/types'
+import { CategorySettings } from '../components/CategorySettings'
 import { Page } from '../components/Page'
 import { RoleBadge } from '../components/RoleBadge'
 import { useOrgId } from '../hooks/useOrgId'
@@ -102,10 +103,7 @@ export function OrgSettingsPage() {
         <p className="muted">총무: 초대 코드·역할·계정과목 관리 · 승인자: 지출 승인/반려 · 구성원: 영수증 등록</p>
       </section>
 
-      <section className="card">
-        <h2 className="card__title">계정과목 · 예산</h2>
-        <p className="muted">다음 단계에서 추가 예정</p>
-      </section>
+      <CategorySettings orgId={orgId} canManage={isTreasurer} />
     </Page>
   )
 }
