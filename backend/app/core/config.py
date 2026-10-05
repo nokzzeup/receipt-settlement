@@ -30,6 +30,11 @@ class Settings(BaseSettings):
     # 비워두면 테스트마다 임시 SQLite 파일을 새로 만들어 사용 (tests/conftest.py)
     test_database_url: str | None = None
 
+    # 로그인 토큰(JWT) 서명 키. 비워두면 backend/data/.jwt-secret 에 자동 생성해서 씀 (PC마다 다름, git 제외)
+    jwt_secret: str | None = None
+    # 로그인 유지 시간(분). 기본 7일 — 만료되면 다시 로그인
+    jwt_expire_minutes: int = 60 * 24 * 7
+
     # OCR 엔진 전환: mock(고정 샘플) | paddle(3단계)
     ocr_engine: Literal["mock", "paddle"] = "mock"
 

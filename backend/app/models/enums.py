@@ -13,6 +13,13 @@ class MembershipRole(StrEnum):
     MEMBER = "MEMBER"  # 구성원
 
 
+ROLE_LABELS = {
+    MembershipRole.TREASURER: "총무",
+    MembershipRole.APPROVER: "승인자",
+    MembershipRole.MEMBER: "구성원",
+}
+
+
 class ExpenseStatus(StrEnum):
     DRAFT = "DRAFT"  # 작성 중 (OCR 확인·수정 단계)
     SUBMITTED = "SUBMITTED"  # 제출됨 → 승인 대기

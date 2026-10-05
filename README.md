@@ -142,7 +142,7 @@ git push                       # 거절되면 git pull 후 다시 push
 ## 팀원별 시작 지점
 
 ### 이성민 — 백엔드 API · 파싱 · 분류 · 정산
-- `backend/app/api/v1/` — **1단계**: 회원가입/로그인(JWT), 조직 생성, 초대 코드 참여. `api/deps.py`에 현재 사용자·멤버십·역할 체크 의존성 추가. 새 라우터는 `v1/router.py`에 등록
+- `backend/app/api/v1/` — 1단계(인증·조직) 완료. 다음은 **2단계**: 계정과목 CRUD, 영수증 업로드 → Mock OCR → 지출 등록. 조직 안 API는 `api/deps.py`의 `CurrentMembership`(멤버 아니면 404) / `require_roles(...)`(역할 아니면 403)를 반드시 거친다
 - `backend/app/parsing/parser.py` — `parse()` 구현. `MockOcrEngine().recognize(b"")` 샘플로 바로 개발 가능
 - `classify/`, `settlement/` — 4·5단계. 정산 엔진은 pytest 필수
 
@@ -152,10 +152,11 @@ git push                       # 거절되면 git pull 후 다시 push
 - `dataset/` — 영수증 수집·라벨링은 지금부터 시작 (형식: `dataset/README.md`)
 
 ### 신율겸 — 프론트 PWA
-- `frontend/src/pages/` — 빈 화면 7개 UI. 경로는 `src/router.tsx` 상단 주석에 정리
+- `frontend/src/pages/` — 로그인·조직 선택·조직 설정은 동작함(1단계). 나머지 화면 UI. 경로는 `src/router.tsx` 상단 주석에 정리
 - `frontend/src/index.css` — 색·간격 변수(`:root`) 바꾸면 전체 반영
 - `frontend/vite.config.ts` — PWA 앱 이름·색, `frontend/public/` 아이콘 교체
-- API 호출은 `src/api/client.ts`의 `api.GET/POST(...)` + TanStack Query 훅 (`src/api/health.ts`가 예시)
+- API 호출은 `src/api/client.ts`의 `api.GET/POST(...)` + `unwrap()` + TanStack Query 훅 (`src/api/orgs.ts`가 예시). 로그인 토큰은 자동으로 붙고, 401이면 로그인 화면으로 이동
+- 백엔드 API가 바뀌면 `npm run gen:api` (백엔드 켜둔 상태) → `src/api/schema.d.ts` 갱신
 
 ---
 

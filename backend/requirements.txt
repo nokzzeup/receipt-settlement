@@ -7,4 +7,7 @@ SQLAlchemy==2.0.54
 alembic==1.20.0
 pydantic==2.13.5
 pydantic-settings==2.15.0
+email-validator==2.3.0       # EmailStr validation for signup/login
+PyJWT==2.15.1                # login access tokens (JWT)
+pwdlib[argon2]==0.3.1        # password hashing (argon2), as recommended by the FastAPI docs
 tzdata==2026.4               # Windows has no tz database; needed for ZoneInfo("Asia/Seoul")

@@ -13,10 +13,15 @@ from sqlalchemy import Engine, make_url
 from sqlalchemy.orm import Session
 
 import app.models  # noqa: F401  모든 모델을 Base.metadata에 등록
+from app.core import security
 from app.core.config import settings
 from app.db.base import Base
 from app.db.session import create_db_engine, get_db
 from app.main import app
+
+# 테스트에선 고정 서명 키 사용 (backend/data/.jwt-secret 파일을 만들지 않게)
+settings.jwt_secret = "test-only-secret-" + "x" * 40
+security._secret.cache_clear()
 
 
 @pytest.fixture(scope="session")
@@ -61,3 +66,10 @@ def client(db_session: Session) -> Iterator[TestClient]:
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()
+
+
+def signup(client: TestClient, email: str, name: str = "테스트", password: str = "password123") -> dict[str, str]:
+    """가입하고 Authorization 헤더를 돌려준다"""
+    response = client.post("/api/v1/auth/signup", json={"email": email, "password": password, "name": name})
+    assert response.status_code == 201, response.text
+    return {"Authorization": f"Bearer {response.json()['access_token']}"}
