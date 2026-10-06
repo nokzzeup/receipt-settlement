@@ -50,3 +50,35 @@ def test_login(client: TestClient) -> None:
 def test_me_requires_valid_token(client: TestClient) -> None:
     assert client.get(ME).status_code == 401
     assert client.get(ME, headers={"Authorization": "Bearer not-a-token"}).status_code == 401
+
+
+def test_login_is_throttled_after_repeated_failures(client: TestClient) -> None:
+    signup(client, "victim@example.com", password="correct-horse")
+    wrong = {"email": "victim@example.com", "password": "wrong-password"}
+
+    for _ in range(10):
+        assert client.post(LOGIN, json=wrong).status_code == 401
+    # 10번 틀린 뒤에는 맞는 비밀번호여도 잠시 차단
+    blocked = client.post(LOGIN, json={"email": "victim@example.com", "password": "correct-horse"})
+    assert blocked.status_code == 429
+    assert "분 뒤에 다시 시도" in blocked.json()["detail"]
+    assert int(blocked.headers["retry-after"]) > 0
+
+    # 다른 계정은 이 IP의 전체 한도(30번) 전까지는 영향 없음
+    signup(client, "other@example.com", password="correct-horse")
+    assert client.post(LOGIN, json={"email": "other@example.com", "password": "correct-horse"}).status_code == 200
+
+
+def test_failure_limiter_window_and_clear() -> None:
+    from app.core.ratelimit import FailureLimiter
+
+    limiter = FailureLimiter(limit=2, window_seconds=60)
+    limiter.record("k", now=0)
+    assert limiter.retry_after("k", now=1) == 0
+    limiter.record("k", now=10)
+    assert limiter.retry_after("k", now=20) == 40  # 첫 실패(0초)가 60초 창에서 빠질 때까지
+    assert limiter.retry_after("k", now=61) == 0  # 시간이 지나면 풀림
+    limiter.record("k", now=62)
+    limiter.record("k", now=63)
+    limiter.clear("k")  # 로그인 성공
+    assert limiter.retry_after("k", now=64) == 0

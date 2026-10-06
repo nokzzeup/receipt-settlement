@@ -1,8 +1,11 @@
-from fastapi import APIRouter, HTTPException, status
+import math
+
+from fastapi import APIRouter, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
 from app.api.deps import CurrentUser, DbSession
+from app.core.ratelimit import login_failures_by_account, login_failures_by_ip
 from app.core.security import create_access_token, hash_password, verify_password, verify_password_for_missing_user
 from app.models import User
 from app.schemas.auth import LoginRequest, SignupRequest, TokenResponse, UserOut
@@ -31,14 +34,27 @@ def signup(body: SignupRequest, db: DbSession) -> TokenResponse:
     return _token_response(user)
 
 
-@router.post("/login")
-def login(body: LoginRequest, db: DbSession) -> TokenResponse:
+@router.post("/login", responses={429: {"description": "로그인 실패가 너무 많아 잠시 차단됨"}})
+def login(body: LoginRequest, request: Request, db: DbSession) -> TokenResponse:
+    ip = request.client.host if request.client else "unknown"
+    account_key = f"{ip}|{body.email}"
+    wait = max(login_failures_by_account.retry_after(account_key), login_failures_by_ip.retry_after(ip))
+    if wait:
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            f"로그인 실패가 너무 많아요. {math.ceil(wait / 60)}분 뒤에 다시 시도하세요.",
+            headers={"Retry-After": str(wait)},
+        )
+
     user = db.scalar(select(User).where(User.email == body.email))
     if user is None:
         verify_password_for_missing_user(body.password)
     if user is None or not verify_password(body.password, user.password_hash):
+        login_failures_by_account.record(account_key)
+        login_failures_by_ip.record(ip)
         # 이메일이 틀렸는지 비밀번호가 틀렸는지 구분해서 알려주지 않음 (가입 여부 노출 방지)
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "이메일 또는 비밀번호가 올바르지 않습니다.")
+    login_failures_by_account.clear(account_key)
     return _token_response(user)
 
 

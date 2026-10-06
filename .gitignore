@@ -34,6 +34,8 @@ backend/storage/*
 
 # 공용 서버 모드의 운영 데이터 (DB·영수증 사진·로그인 키·백업) — 절대 커밋 금지
 server-data/
+# 공용 서버가 처음 한 번 내려받는 도구 (cloudflared 등)
+.tools/
 
 # 데이터셋 원본 이미지 — 카드번호·승인번호 등이 찍혀 있으므로 레포 대신 팀 드라이브로 공유
 dataset/images/*

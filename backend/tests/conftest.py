@@ -14,7 +14,7 @@ from sqlalchemy import Engine, make_url
 from sqlalchemy.orm import Session
 
 import app.models  # noqa: F401  모든 모델을 Base.metadata에 등록
-from app.core import security
+from app.core import ratelimit, security
 from app.core.config import settings
 from app.db.base import Base
 from app.db.session import create_db_engine, get_db
@@ -55,6 +55,14 @@ def db_session(engine: Engine) -> Iterator[Session]:
         session.close()
         transaction.rollback()
         connection.close()
+
+
+@pytest.fixture(autouse=True)
+def reset_login_limits() -> Iterator[None]:
+    """로그인 실패 기록은 서버 메모리라 테스트끼리 섞이지 않게 매번 비움"""
+    ratelimit.login_failures_by_account.reset()
+    ratelimit.login_failures_by_ip.reset()
+    yield
 
 
 @pytest.fixture(autouse=True)
