@@ -12,7 +12,7 @@ from functools import lru_cache
 import jwt
 from pwdlib import PasswordHash
 
-from app.core.config import BACKEND_DIR, settings
+from app.core.config import settings
 
 _password_hash = PasswordHash.recommended()
 ALGORITHM = "HS256"
@@ -40,7 +40,7 @@ def verify_password_for_missing_user(password: str) -> None:
 def _secret() -> str:
     if settings.jwt_secret:
         return settings.jwt_secret
-    path = BACKEND_DIR / "data" / ".jwt-secret"
+    path = settings.data_path / ".jwt-secret"  # 개발: backend/data, 서버 모드: server-data
     if not path.exists():
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(secrets.token_urlsafe(48), encoding="utf-8")

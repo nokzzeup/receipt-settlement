@@ -3,6 +3,7 @@ import { spawn, spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import net from 'node:net'
+import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -20,14 +21,35 @@ export const APP_URL = 'http://127.0.0.1:5173'
 // Vite(5173)를 거쳐 백엔드까지 확인 → 둘 다 떠 있어야 OK.
 // IPv6 주소도 보는 이유: 이전 버전(localhost 사용)으로 켜둔 서버가 Windows에선 ::1에 떠 있음
 const HEALTH_URLS = ['http://127.0.0.1:5173/api/v1/health', 'http://[::1]:5173/api/v1/health']
-const PORTS = [
+export const DEV_PORTS = [
   { host: '127.0.0.1', port: 8000, label: '백엔드' },
   { host: '127.0.0.1', port: 5173, label: '프론트' },
   { host: '::1', port: 5173, label: '프론트' },
 ]
 
+// ---------------------------------------------------------------------------
+// 공용 서버 모드 (npm run serve, server-*.bat): 화면 + API를 포트 하나로, 같은 와이파이의 다른 기기에서도 접속
+// 개발 서버(8000·5173)와 포트·데이터가 달라서 둘을 동시에 켜도 된다
+export const SERVER_DATA_DIR = path.join(ROOT, 'server-data') // 운영 DB·영수증 사진·로그인 키
+export const SERVER_PORT = Number(readEnvValue('SERVER_PORT')) || 8080
+export const SERVER_PORTS = [{ host: '0.0.0.0', port: SERVER_PORT, label: '공용 서버' }]
+
 // 파이썬 출력을 UTF-8로 고정 → Windows에서도 한글 로그가 깨지지 않음
 const PYTHON_ENV = { ...process.env, PYTHONUTF8: '1', PYTHONUNBUFFERED: '1' }
+
+/** 환경변수 → 없으면 레포 루트 .env 에서 KEY=값 을 읽는다 (Node 스크립트용 간단 버전) */
+export function readEnvValue(key) {
+  if (process.env[key]) return process.env[key]
+  try {
+    for (const line of readFileSync(path.join(ROOT, '.env'), 'utf8').split(/\r?\n/)) {
+      const match = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$/)
+      if (match && match[1] === key) return match[2].replace(/^(['"])(.*)\1$/, '$2')
+    }
+  } catch {
+    // .env 가 없으면 기본값
+  }
+  return undefined
+}
 
 export function fail(message) {
   console.error(`\n[오류] ${message}\n`)
@@ -104,12 +126,13 @@ export function runForeground(command, args, options = {}, onExit) {
   return child
 }
 
-export function runPython(args) {
-  run(VENV_PYTHON, args, { cwd: BACKEND, env: PYTHON_ENV })
+/** extraEnv: 이 실행에만 덮어쓸 환경변수 (서버 모드의 DATA_DIR 등) */
+export function runPython(args, extraEnv = {}) {
+  run(VENV_PYTHON, args, { cwd: BACKEND, env: { ...PYTHON_ENV, ...extraEnv } })
 }
 
-export function runPythonForeground(args) {
-  runForeground(VENV_PYTHON, args, { cwd: BACKEND, env: PYTHON_ENV })
+export function runPythonForeground(args, extraEnv = {}, onExit) {
+  return runForeground(VENV_PYTHON, args, { cwd: BACKEND, env: { ...PYTHON_ENV, ...extraEnv } }, onExit)
 }
 
 /** npm 실행. `npm run ...`으로 불렸으면 같은 npm을 node로 직접 실행(Windows .cmd 문제 회피) */
@@ -149,14 +172,41 @@ function probePort(host, port) {
   })
 }
 
+/** 공용 서버가 이 PC에서 이미 돌고 있는지 */
+export async function isServerRunning(port = SERVER_PORT) {
+  try {
+    const response = await fetch(`http://127.0.0.1:${port}/api/v1/health`, { signal: AbortSignal.timeout(1500) })
+    return response.ok
+  } catch {
+    return false
+  }
+}
+
+/**
+ * 같은 와이파이의 다른 기기가 이 PC에 들어올 때 쓸 주소(IPv4) 목록.
+ * WSL·Hyper-V·VirtualBox 같은 가상 어댑터 주소는 다른 기기에서 못 들어오므로 실제 어댑터가 있으면 뺀다
+ */
+export function lanAddresses() {
+  const all = []
+  for (const [name, infos] of Object.entries(os.networkInterfaces())) {
+    for (const info of infos ?? []) {
+      if (info.family !== 'IPv4' || info.internal || info.address.startsWith('169.254.')) continue
+      all.push({ name, address: info.address })
+    }
+  }
+  const virtual = /vEthernet|WSL|Hyper-V|VirtualBox|VMware|docker|^br-|^veth|vboxnet|utun|Loopback/i
+  const real = all.filter((entry) => !virtual.test(entry.name))
+  return real.length ? real : all
+}
+
 /**
  * 서버를 띄우거나 설치(npm ci)하기 전에 포트 확인. 문제가 있으면 이유를 설명하고 종료한다.
  * (Windows는 실행 중인 서버의 파일을 지울 수 없어서, 켜진 채로 설치하면 중간에 실패함)
  */
-export async function ensurePortsFree() {
+export async function ensurePortsFree(ports = DEV_PORTS) {
   const inUse = new Set()
   const reserved = new Set()
-  for (const { host, port, label } of PORTS) {
+  for (const { host, port, label } of ports) {
     const code = await probePort(host, port)
     if (code === 'EADDRINUSE') inUse.add(`${port}(${label})`)
     else if (code === 'EACCES') reserved.add(`${port}(${label})`)
@@ -168,7 +218,7 @@ export async function ensurePortsFree() {
   if (inUse.size) {
     lines.push(
       `포트 ${[...inUse].join(', ')}를 이미 다른 프로그램이 쓰고 있어요.`,
-      '→ 다른 창에 서버(npm run dev, start 파일)가 켜져 있으면 그 창을 닫고 다시 실행하세요.',
+      '→ 다른 창에 서버(start·server 파일, npm run dev·serve)가 켜져 있으면 그 창을 닫고 다시 실행하세요.',
       '→ 켜둔 창이 없는데도 그러면 PC를 재시작해 보세요.',
     )
   }

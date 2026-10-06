@@ -15,6 +15,7 @@ ASCII_ONLY_FILES = [
     "backend/requirements-dev.txt",
     "backend/app/db/migrations/script.py.mako",
     "start-windows.bat",
+    "server-windows.bat",
 ]
 
 

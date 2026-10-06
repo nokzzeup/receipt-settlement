@@ -84,6 +84,7 @@ git push                       # 거절되면 git pull 후 다시 push
 | `npm start` | 필요하면 설치 → 백엔드 + 프론트 실행 → 브라우저 열기 (더블클릭 실행과 같음) |
 | `npm run dev` | 백엔드 + 프론트 실행 |
 | `npm run dev:host` | 폰에서도 접속 가능하게 실행 (아래 "폰에서 테스트") |
+| `npm run serve` | 팀 공용 서버로 실행 (server 파일 더블클릭과 같음, 아래 "팀 공용 서버") |
 | `npm test` | 백엔드 테스트 |
 | `npm run db:revision "add xxx"` | 모델 수정 후 마이그레이션 생성 → **생성된 파일 꼭 읽어보기** |
 | `npm run db:upgrade` | 마이그레이션 적용 (`npm run dev`가 시작할 때 자동으로 함) |
@@ -104,6 +105,39 @@ git push                       # 거절되면 git pull 후 다시 push
 - Windows는 처음 실행할 때 방화벽 팝업에서 "개인 네트워크" 허용
 - 학교 공용 와이파이는 기기끼리 접속이 막혀 있는 경우가 많음 → 핫스팟 사용
 - 촬영은 이 상태로 되지만, PWA 설치·오프라인 기능은 HTTPS에서만 동작 → 필요해질 때 따로 준비
+- 이건 개발 중 확인용. 여러 명이 **같은 데이터로 같이 쓰는 건** 아래 "팀 공용 서버"
+
+---
+
+## 팀 공용 서버 (노트북 한 대를 서버로)
+
+여러 명이 같은 데이터를 쓰려면 PC 한 대(팀장 노트북)를 서버로 켜고, 다른 사람은 그 주소로 접속한다.
+(개발용 실행은 PC마다 데이터가 따로라서 같이 쓰는 용도가 아님)
+
+| Windows | Mac | 터미널 |
+|---|---|---|
+| `server-windows.bat` 더블클릭 | `server-mac.command` 더블클릭 | `npm run serve` |
+
+1. 창에 뜨는 주소를 확인한다
+   ```
+   이 노트북:               http://127.0.0.1:8080
+   같은 와이파이의 PC·폰:   http://192.168.0.12:8080   (Wi-Fi)
+   ```
+2. 같은 와이파이에 연결된 다른 PC·폰의 브라우저에서 두 번째 주소를 열고 회원가입·로그인해서 쓴다. 폰은 촬영 버튼을 누르면 카메라가 바로 열림
+3. 처음 켤 때 Windows 방화벽 창이 뜨면 **허용** (안 누르면 다른 기기에서 접속이 안 됨)
+
+- 하는 일: (필요하면 설치) → 화면 빌드 → DB 자동 백업 → DB 구조 업데이트 → 서버 실행. **끄기: 창 닫기**
+- **데이터는 `server-data/` 폴더** (DB·영수증 사진·로그인 키). 개발용 `backend/data`와 따로라서 처음엔 회원가입부터. git에 안 올라감
+- 개발용 실행(start 파일)과 **동시에 켜도 됨** — 포트(개발 5173·8000 / 서버 8080)와 데이터가 다름
+- 코드 업데이트: 서버 창 닫기 → `git pull` → 다시 더블클릭 (화면 빌드·DB 업데이트는 자동)
+- 백업: 켤 때마다 DB가 `server-data/backups/`에 자동 저장(최근 10개). 영수증 사진까지 보관하려면 서버를 끄고 `server-data` 폴더째 복사.
+  되돌리기: 서버를 끄고 백업 파일을 `server-data/app.db`로 덮어쓴 뒤 다시 켜기
+- 포트를 바꾸려면 `.env`의 `SERVER_PORT`
+
+주의
+- 노트북이 꺼지거나 절전·덮개 닫힘이면 아무도 못 씀 → 서버로 쓰는 동안은 절전 끄기
+- 지금은 http라서 **같은 와이파이 안에서만** 쓰는 용도. 공용 와이파이에선 비밀번호가 암호화 없이 오가므로 실사용 전에 HTTPS(터널)를 붙인다
+- 학교 와이파이는 기기끼리 막혀 있는 경우가 많음 → 노트북 핫스팟에 다른 기기를 연결
 
 ---
 
@@ -111,8 +145,11 @@ git push                       # 거절되면 git pull 후 다시 push
 
 ```
 .
-├── start-windows.bat         더블클릭 실행 (Windows)
-├── start-mac.command         더블클릭 실행 (Mac)
+├── start-windows.bat         더블클릭 실행 — 개발용 (Windows)
+├── start-mac.command         더블클릭 실행 — 개발용 (Mac)
+├── server-windows.bat        더블클릭 실행 — 팀 공용 서버 (Windows)
+├── server-mac.command        더블클릭 실행 — 팀 공용 서버 (Mac)
+├── server-data/              공용 서버의 DB·영수증 사진·백업 (git 제외, 서버 PC에만 생김)
 ├── package.json              실행 명령 모음 (npm start / dev / test ...)
 ├── docs/                     PROJECT.md(범위·규칙·모델), DECISIONS.md(설계 결정과 이유)
 ├── scripts/                  위 명령이 부르는 실행 스크립트 + 정확도 측정 등 유틸
@@ -123,6 +160,8 @@ git push                       # 거절되면 git pull 후 다시 push
 │   ├── storage/              업로드 이미지 (git 제외)
 │   ├── app/
 │   │   ├── main.py           FastAPI 앱
+│   │   ├── web.py            공용 서버 모드에서 빌드된 화면을 같이 내보내기
+│   │   ├── ops/              운영 도구 (DB 백업)
 │   │   ├── core/             설정(config.py), 시간대(timezone.py)
 │   │   ├── api/              라우터 — v1/*.py (auth, orgs, categories, expenses), deps.py(권한)  (이성민)
 │   │   ├── schemas/          API 요청·응답 스키마 (바뀌면 프론트 gen:api)          (이성민)
@@ -201,6 +240,8 @@ git push                       # 거절되면 git pull 후 다시 push
 | `Windows가 포트 ...를 예약해둬서 쓸 수 없어요` | Docker·WSL 설치 후 생기는 문제. 관리자 PowerShell에서 `net stop winnat` → `net start winnat` 후 다시 실행 |
 | (Windows) 실행 창 안을 클릭했더니 서버가 멈춘 것 같음 | 창이 '선택 모드'로 바뀐 것 → `Esc`를 누르면 다시 진행 |
 | 화면 위 표시줄이 `연결 실패` | 터미널의 `[api]` 로그에 에러가 있는지 확인 |
+| 다른 PC·폰에서 공용 서버 주소가 안 열림 | ① 같은 와이파이인지 ② 서버 창이 켜져 있는지 ③ Windows 보안 → 방화벽 및 네트워크 보호 → 방화벽에서 앱 허용 → `python.exe`의 '개인' 체크 ④ 설정 → 네트워크 및 인터넷 → Wi-Fi에서 네트워크 프로필을 '개인'으로 ⑤ 학교 와이파이면 노트북 핫스팟으로 |
+| 공용 서버 화면이 예전 그대로 | 서버 창을 닫고 다시 켜기 (켤 때마다 화면을 새로 빌드함). 그래도 같으면 브라우저 새로고침 |
 | `database is locked` | DB Browser for SQLite에서 저장 안 한 변경이 있으면 생김 → 저장하거나 닫기 |
 | `git push`가 `rejected`로 거절됨 | 그 사이 팀원이 먼저 올린 것 → `git pull` 후 다시 `git push` |
 | git에서 손대지 않은 파일이 통째로 바뀐 것으로 보임 | 줄바꿈(CRLF/LF) 차이. `git add --renormalize .` 한 번 실행 |

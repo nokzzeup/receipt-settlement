@@ -27,7 +27,11 @@ await ensurePortsFree()
 
 if (!isSetupUpToDate()) {
   console.log('처음 실행이거나 패키지가 바뀌어서 준비(setup)부터 합니다. 몇 분 걸릴 수 있어요.')
-  const setup = spawnSync(process.execPath, [path.join(SCRIPTS, 'setup.mjs')], { cwd: ROOT, stdio: 'inherit' })
+  const setup = spawnSync(process.execPath, [path.join(SCRIPTS, 'setup.mjs')], {
+    cwd: ROOT,
+    stdio: 'inherit',
+    env: { ...process.env, SETUP_CALLED_BY_LAUNCHER: '1' },
+  })
   if (setup.status !== 0) failWithHint(setup.status)
 }
 

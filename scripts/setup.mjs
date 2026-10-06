@@ -4,8 +4,10 @@ import { spawnSync } from 'node:child_process'
 import { copyFileSync, existsSync, rmSync } from 'node:fs'
 import path from 'node:path'
 import {
+  DEV_PORTS,
   FRONTEND,
   ROOT,
+  SERVER_PORTS,
   VENV_DIR,
   VENV_PYTHON,
   ensurePortsFree,
@@ -58,8 +60,9 @@ if (major < 22 || (major === 22 && minor < 22)) {
   fail(`Node.js ${process.versions.node} → 22.22 이상이 필요합니다 (nodejs.org에서 24 LTS 설치)`)
 }
 console.log(`Node.js ${process.versions.node} OK`)
-// 서버가 켜진 채로 설치하면 Windows에선 사용 중인 파일을 못 지워서 npm ci가 중간에 실패함 → 먼저 확인
-await ensurePortsFree()
+// 서버가 켜진 채로 설치하면 Windows에선 사용 중인 파일을 못 지워서 npm ci·pip가 중간에 실패함 → 먼저 확인
+// (공용 서버도 같은 파이썬 환경을 쓰므로 같이 확인)
+await ensurePortsFree([...DEV_PORTS, ...SERVER_PORTS])
 
 // ---------------------------------------------------------------------------
 step('.env 준비')
@@ -102,4 +105,9 @@ runNpm(['ci', '--no-audit', '--no-fund'], ROOT)
 runNpm(['ci', '--no-audit', '--no-fund'], FRONTEND)
 
 writeSetupStamp() // 패키지 목록이 다시 바뀌기 전까지 더블클릭 실행이 setup을 건너뜀
-console.log('\n준비 완료! 이제 `npm run dev`(또는 start 파일 더블클릭)로 실행하고 http://localhost:5173 을 여세요.\n')
+if (process.env.SETUP_CALLED_BY_LAUNCHER) {
+  console.log('\n준비 완료! 이어서 실행합니다.\n') // 더블클릭 실행 파일이 setup을 부른 경우
+} else {
+  console.log('\n준비 완료! 이제 start 파일 더블클릭(또는 `npm run dev`)으로 실행하세요.')
+  console.log('팀 공용 서버로 켜려면 server 파일 더블클릭(또는 `npm run serve`).\n')
+}

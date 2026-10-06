@@ -10,6 +10,7 @@
     "setup": "node scripts/setup.mjs",
     "dev": "node scripts/dev.mjs",
     "dev:host": "node scripts/dev.mjs --host",
+    "serve": "node scripts/serve.mjs",
     "test": "node scripts/py.mjs -m pytest",
     "db:upgrade": "node scripts/py.mjs -m alembic upgrade head",
     "db:revision": "node scripts/py.mjs -m alembic revision --autogenerate -m",

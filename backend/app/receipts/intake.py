@@ -6,6 +6,7 @@ OCR·파싱이 실패해도 업로드 자체는 성공시킨다 (빈 값으로 �
 
 import hashlib
 import logging
+import threading
 from dataclasses import dataclass
 
 from sqlalchemy.orm import Session
@@ -20,6 +21,10 @@ from app.schemas.common import MAX_AMOUNT, MAX_ITEMS, MAX_QUANTITY
 
 logger = logging.getLogger(__name__)
 
+# OCR은 한 번에 한 장씩. PaddleOCR 같은 엔진은 CPU·메모리를 많이 쓰고 동시 호출을 보장하지 않아서,
+# 여러 명이 동시에 올리면 뒤 사람은 앞 사람 인식이 끝날 때까지 기다린다 (동아리 규모면 몇 초)
+_ocr_lock = threading.Lock()
+
 
 @dataclass(frozen=True)
 class Recognized:
@@ -29,7 +34,9 @@ class Recognized:
 
 def recognize(engine: OcrEngine, image_bytes: bytes) -> Recognized:
     try:
-        raw = mask_ocr_result(engine.recognize(image_bytes))
+        with _ocr_lock:
+            result = engine.recognize(image_bytes)
+        raw = mask_ocr_result(result)
     except Exception:
         logger.exception("OCR 실패 (engine=%s)", getattr(engine, "name", "?"))
         return Recognized(raw=None, fields=ReceiptFields())
