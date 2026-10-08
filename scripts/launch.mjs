@@ -15,6 +15,7 @@ import {
   isOcrSetupNeeded,
   isSetupUpToDate,
   openBrowser,
+  printProjectLocationWarnings,
   runForeground,
   startupSummary,
 } from './lib.mjs'
@@ -29,6 +30,7 @@ function failWithHint(code) {
 
 console.log('\n=== 영수증 정산 개발 서버 ===')
 console.log(startupSummary())
+printProjectLocationWarnings()
 
 if (await isAppRunning()) {
   console.log(`이미 실행 중이라 브라우저만 엽니다: ${APP_URL}`)
@@ -51,7 +53,11 @@ if (!isSetupUpToDate()) {
 // .env 에서 실제 OCR(OCR_ENGINE=paddle)을 골랐는데 설치가 안 됐거나 버전 목록이 바뀌었으면 설치부터
 if (isOcrSetupNeeded()) {
   console.log('실제 OCR(OCR_ENGINE=paddle)을 쓰도록 돼 있어서 OCR 설치부터 합니다. 몇 분 걸려요.')
-  const setupOcr = spawnSync(process.execPath, [path.join(SCRIPTS, 'setup-ocr.mjs')], { cwd: ROOT, stdio: 'inherit' })
+  const setupOcr = spawnSync(process.execPath, [path.join(SCRIPTS, 'setup-ocr.mjs')], {
+    cwd: ROOT,
+    stdio: 'inherit',
+    env: { ...process.env, SETUP_CALLED_BY_LAUNCHER: '1' },
+  })
   if (setupOcr.status !== 0) failWithHint(setupOcr.status)
 }
 

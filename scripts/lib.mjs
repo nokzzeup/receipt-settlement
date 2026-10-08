@@ -145,6 +145,35 @@ export async function checkOcrStatus(baseUrl) {
   return { ocr, text }
 }
 
+/**
+ * Windows에서 문제가 되는 프로젝트 폴더 위치 → 안내 문구 목록 (문제 없으면 빈 목록)
+ * - OneDrive 안: 바탕 화면·문서가 OneDrive로 동기화되는 PC가 많음. 설치 파일 수만 개(약 2GB)를 계속 올리고,
+ *   동기화 중 파일 잠김으로 설치·실행이 실패할 수 있음 (2026-10-08 팀 노트북이 OneDrive\바탕 화면)
+ * - 영문이 아닌 글자: Windows에서 일부 C++ 도구(PaddleOCR 등)가 이런 경로의 파일을 못 여는 사례가 있음 (예방 차원 안내)
+ */
+export function locationProblems(root = ROOT, env = process.env, windows = isWindows) {
+  if (!windows) return []
+  const problems = []
+  const lowerRoot = path.win32.resolve(root).toLowerCase() + '\\'
+  const oneDrives = [env.OneDrive, env.OneDriveConsumer, env.OneDriveCommercial].filter(Boolean)
+  if (oneDrives.some((dir) => lowerRoot.startsWith(path.win32.resolve(dir).toLowerCase() + '\\'))) {
+    problems.push('OneDrive 안이에요 → 설치 파일 수만 개(약 2GB)가 클라우드로 동기화되고, 동기화 중 파일이 잠겨 설치·실행이 실패할 수 있어요')
+  }
+  if (/[^\x20-\x7e]/.test(root)) {
+    problems.push('경로에 한글 등 영문이 아닌 글자가 있어요 → 일부 도구(특히 PaddleOCR)가 이런 경로의 파일을 못 여는 경우가 있어요')
+  }
+  return problems
+}
+
+export function printProjectLocationWarnings() {
+  const problems = locationProblems()
+  if (problems.length === 0) return
+  console.log(`\n[주의] 프로젝트 폴더 위치: ${ROOT}`)
+  for (const problem of problems) console.log(`       - ${problem}`)
+  console.log('       → 창을 모두 닫고 폴더를 통째로 C:\\dev 처럼 OneDrive 밖의 영문 경로로 옮기는 걸 권장해요')
+  console.log('         (설치물·DB·.env 가 같이 옮겨져서 그대로 실행됨. 바탕 화면엔 server 파일 바로 가기를 두면 편해요)')
+}
+
 /** 이 폴더 코드의 커밋 번호(앞 7자리). git 프로그램 없이 .git 폴더를 직접 읽는다. 모르면 null */
 export function codeVersion() {
   try {

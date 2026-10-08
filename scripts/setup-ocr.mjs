@@ -2,6 +2,7 @@
 //
 // 1) 기본 준비(setup)가 됐는지 → 안 됐으면 먼저
 // 2) 이 컴퓨터용 설치 파일이 있는지 (Windows x64, Apple Silicon Mac, Linux x64)
+//    Windows는 Microsoft Visual C++ 재배포 패키지도 확인 (없으면 설치해도 DLL 에러로 못 켬 — app/ocr/winprereq.py)
 // 3) 서버가 꺼져 있는지 (켜진 채로 패키지를 바꾸면 Windows에서 설치가 깨짐)
 // 4) 패키지 설치 (backend/requirements-ocr.txt, 내려받는 양 약 300MB — 몇 분 걸림)
 // 5) 자가 진단: 모델 파일(약 25MB) 받기 + 시험 이미지 인식
@@ -20,6 +21,7 @@ import {
   ensurePortsFree,
   fail,
   isSetupUpToDate,
+  printProjectLocationWarnings,
   writeOcrStamp,
 } from './lib.mjs'
 
@@ -58,12 +60,23 @@ if (!SUPPORTED.has(platform)) {
   )
 }
 
+if (!process.env.SETUP_CALLED_BY_LAUNCHER) printProjectLocationWarnings()
+
 if (!isSetupUpToDate()) {
   const ok = step('기본 준비(setup)부터 합니다.', process.execPath, [path.join(ROOT, 'scripts', 'setup.mjs')], {
     cwd: ROOT,
     env: { ...process.env, SETUP_CALLED_BY_LAUNCHER: '1' },
   })
   if (!ok) fail('기본 준비(setup)에 실패했어요. 위 메시지를 확인하세요.')
+}
+
+// Windows: PaddleOCR가 쓰는 C++ 런타임(Visual C++ 재배포 패키지)이 없으면 설치해도 못 켠다 → 300MB 받기 전에 확인
+if (process.platform === 'win32') {
+  const ready = step('[확인] Microsoft Visual C++ 재배포 가능 패키지', VENV_PYTHON, ['-m', 'app.ocr.winprereq'], {
+    cwd: BACKEND,
+    env: PYTHON_ENV,
+  })
+  if (!ready) fail('위 주소에서 받아 설치한 뒤 다시 실행하세요: npm run setup:ocr')
 }
 
 await ensurePortsFree([...DEV_PORTS, ...SERVER_PORTS])

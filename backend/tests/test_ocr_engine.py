@@ -66,3 +66,63 @@ def test_engine_signature_does_not_need_paddle() -> None:
     from app.ocr.paddle import ENGINE_SIGNATURE
 
     assert "paddleocr-3.7.0" in ENGINE_SIGNATURE
+
+
+# --- Windows: Visual C++ 재배포 패키지 확인 (2026-10-08 팀 노트북에서 _pyclipper DLL 에러로 실제 발생) ---
+
+
+def test_vc_runtime_check_is_skipped_outside_windows() -> None:
+    from app.ocr import winprereq
+
+    assert winprereq.missing_runtime_dlls(platform="linux") == []
+    assert winprereq.missing_runtime_dlls(platform="darwin") == []
+
+
+def test_vc_runtime_check_reports_dlls_that_fail_to_load(monkeypatch: pytest.MonkeyPatch) -> None:
+    import ctypes
+
+    from app.ocr import winprereq
+
+    def fake_windll(name: str) -> object:
+        if name == "msvcp140.dll":
+            raise OSError(126, "지정된 모듈을 찾을 수 없습니다")
+        return object()
+
+    monkeypatch.setattr(ctypes, "WinDLL", fake_windll, raising=False)  # 리눅스·맥 ctypes엔 WinDLL이 없음
+    assert winprereq.missing_runtime_dlls(platform="win32") == ["msvcp140.dll"]
+
+
+def test_vc_runtime_check_command_explains_how_to_fix(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from app.ocr import winprereq
+
+    monkeypatch.setattr(winprereq, "missing_runtime_dlls", lambda: ["msvcp140.dll", "vcomp140.dll"])
+    assert winprereq.main() == 1
+    out = capsys.readouterr().out
+    assert "msvcp140.dll, vcomp140.dll" in out
+    assert winprereq.VC_REDIST_URL in out
+
+    monkeypatch.setattr(winprereq, "missing_runtime_dlls", lambda: [])
+    assert winprereq.main() == 0
+
+
+@pytest.mark.parametrize(
+    ("missing", "message"),
+    [
+        (["msvcp140.dll"], r"Visual C\+\+ 재배포 가능 패키지"),  # 설치는 됐는데 DLL이 없는 경우 → 재배포 패키지 안내
+        ([], r"npm run setup:ocr"),  # 정말 설치가 안 된 경우
+    ],
+)
+def test_paddle_import_failure_explains_the_cause(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: object, missing: list[str], message: str
+) -> None:
+    import sys
+
+    from app.ocr import paddle, winprereq
+
+    monkeypatch.setenv("PADDLE_PDX_CACHE_HOME", str(tmp_path))  # 엔진이 setdefault 하는 환경변수가 다른 테스트로 새지 않게
+    monkeypatch.setitem(sys.modules, "paddleocr", None)  # 설치 여부와 무관하게 import 실패
+    monkeypatch.setattr(winprereq, "missing_runtime_dlls", lambda: missing)
+    with pytest.raises(RuntimeError, match=message):
+        paddle.PaddleOcrEngine()

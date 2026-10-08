@@ -39,6 +39,9 @@ Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 git clone https://github.com/nokzzeup/receipt-settlement.git
 cd receipt-settlement
 ```
+- (Windows) **OneDrive 안(바탕 화면·문서가 OneDrive로 동기화되는 PC가 많음)이나 한글이 들어간 경로는 피하기** →
+  `C:\dev` 같은 곳에서 받기 (`mkdir C:\dev` → `cd C:\dev` → 위 명령). OneDrive는 설치 파일 수만 개(약 2GB)를 계속 동기화하고,
+  한글 경로는 일부 도구(PaddleOCR 등)가 못 여는 경우가 있음. 이런 위치면 실행 창에 `[주의] 프로젝트 폴더 위치`가 뜬다
 
 **6. 실행** — 아래 "매일: 실행"과 같음. 처음 한 번은 설치(파이썬 가상환경·패키지·DB·프론트 패키지)를 자동으로 하느라 2~3분 걸린다.
 
@@ -168,6 +171,8 @@ npm run setup:ocr
 ```
 - 하는 일: OCR 패키지 설치(약 300MB, 몇 분) → 모델 파일 받기(약 25MB, `.tools/paddlex`) → 시험 이미지로 자가 진단 → `.env`의 `OCR_ENGINE`을 `paddle`로 변경
 - 되는 PC: **Windows(64비트) / Apple Silicon Mac**, Python 3.12·3.13. Intel Mac·ARM 윈도우는 설치 파일이 없어서 Mock으로 개발
+- Windows는 **Microsoft Visual C++ 재배포 가능 패키지(x64)** 가 있어야 한다 (PaddleOCR 일부가 이 패키지의 DLL을 씀).
+  없으면 setup:ocr가 먼저 알려줌 → https://aka.ms/vc14/vc_redist.x64.exe 받아서 설치 후 다시 `npm run setup:ocr`
 - 서버를 켜면 창에 `인식(OCR): 실제 OCR(PaddleOCR) 사용 중`이 뜬다 (개발 화면은 맨 위 표시줄에 OCR 상태)
 - `.env`에 `OCR_ENGINE=paddle`만 적어둬도 더블클릭 실행(start·server 파일)이 필요하면 알아서 설치한다
 - 끄기: `.env`의 `OCR_ENGINE=mock`
@@ -286,6 +291,8 @@ npm run ocr:eval -- --refresh   # 전처리·엔진 설정을 바꿨을 때 (OCR
 | (Windows) 실행 창 안을 클릭했더니 서버가 멈춘 것 같음 | 창이 '선택 모드'로 바뀐 것 → `Esc`를 누르면 다시 진행 |
 | 화면 위 표시줄이 `연결 실패` | 터미널의 `[api]` 로그에 에러가 있는지 확인 |
 | 다른 PC·폰에서 공용 서버 주소가 안 열림 | ① 같은 와이파이인지 ② 서버 창이 켜져 있는지 ③ Windows 보안 → 방화벽 및 네트워크 보호 → 방화벽에서 앱 허용 → `python.exe`의 '개인' 체크 ④ 설정 → 네트워크 및 인터넷 → Wi-Fi에서 네트워크 프로필을 '개인'으로 ⑤ 학교 와이파이면 노트북 핫스팟으로 |
+| `Microsoft Visual C++ 재배포 가능 패키지(x64)가 없어서` 또는 `DLL load failed while importing _pyclipper` | https://aka.ms/vc14/vc_redist.x64.exe 받아서 설치 → `npm run setup:ocr` 다시 (패키지는 다시 안 받고 자가 진단만 함) |
+| 실행 창에 `[주의] 프로젝트 폴더 위치` | OneDrive 안이거나 경로에 한글이 있음 → 창을 모두 닫고 폴더를 통째로 `C:\dev` 같은 곳으로 옮기기 (설치물·DB·`.env`가 같이 옮겨져서 그대로 실행됨) |
 | `npm run setup:ocr`에서 `이 컴퓨터용 PaddleOCR 설치 파일이 없어요` | Intel Mac·ARM 윈도우. 이 PC는 `OCR_ENGINE=mock`으로 개발하고 실제 인식은 공용 서버 PC에서 |
 | 사진을 올려도 `행복마트 테스트점` 같은 고정 내용만 채워짐 | 가짜 OCR(Mock) 상태. 서버 창의 `인식(OCR):` 줄이나 브라우저로 `http://127.0.0.1:8080/api/v1/health`의 `ocr` 값 확인 → `mock`이면 서버를 끄고 `npm run setup:ocr` |
 | 서버 창에 `실제 OCR을 켜지 못했어요` | 위쪽 Traceback 확인 → 서버를 끄고 `npm run setup:ocr` 다시. 그동안 업로드는 되고 직접 입력으로 처리됨 |

@@ -30,6 +30,7 @@ import {
   lanAddresses,
   ocrEngineSetting,
   openBrowser,
+  printProjectLocationWarnings,
   runPythonForeground,
   startupSummary,
 } from './lib.mjs'
@@ -138,6 +139,7 @@ async function startTunnel() {
 
 console.log('\n=== 영수증 정산 공용 서버 ===')
 console.log(startupSummary())
+printProjectLocationWarnings()
 
 if (await isServerRunning()) {
   await printServerInfo({ elsewhere: true })
@@ -167,7 +169,7 @@ if (isOcrSetupNeeded()) {
     '실제 OCR(OCR_ENGINE=paddle)을 쓰도록 돼 있어서 OCR 설치부터 합니다. 몇 분 걸려요.',
     process.execPath,
     [path.join(ROOT, 'scripts', 'setup-ocr.mjs')],
-    { cwd: ROOT },
+    { cwd: ROOT, env: { ...process.env, SETUP_CALLED_BY_LAUNCHER: '1' } },
   )
 }
 

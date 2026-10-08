@@ -13,6 +13,7 @@ import {
   ensurePortsFree,
   fail,
   isWindows,
+  printProjectLocationWarnings,
   run,
   runNpm,
   runPython,
@@ -52,6 +53,9 @@ function findPython() {
       '        (3.14 이상은 3단계에서 쓸 PaddleOCR가 아직 지원하지 않습니다)',
   )
 }
+
+// 더블클릭 실행 파일이 부른 경우엔 그쪽에서 이미 안내함
+if (!process.env.SETUP_CALLED_BY_LAUNCHER) printProjectLocationWarnings()
 
 // ---------------------------------------------------------------------------
 step('Node.js 버전 확인')

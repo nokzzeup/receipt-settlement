@@ -10,6 +10,14 @@ import time
 
 
 def main() -> int:
+    from app.ocr.winprereq import install_hint, missing_runtime_dlls
+
+    # Windows에 C++ 런타임이 없으면 아래 import가 알아보기 힘든 DLL 에러로 실패함 → 먼저 확인해서 해결법 안내
+    missing = missing_runtime_dlls()
+    if missing:
+        print(f"[오류] {install_hint(missing)}")
+        return 1
+
     try:
         import cv2
         import numpy as np

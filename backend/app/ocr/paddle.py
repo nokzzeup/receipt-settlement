@@ -45,7 +45,13 @@ class PaddleOcrEngine(OcrEngine):
         try:
             from paddleocr import PaddleOCR
         except ImportError as error:
-            raise RuntimeError("PaddleOCR가 설치돼 있지 않습니다 → npm run setup:ocr 를 실행하세요") from error
+            # 설치는 됐는데 Windows에 C++ 런타임이 없어서 DLL을 못 불러온 경우가 흔함 → 그 안내를 먼저
+            from app.ocr.winprereq import install_hint, missing_runtime_dlls
+
+            missing = missing_runtime_dlls()
+            if missing:
+                raise RuntimeError(install_hint(missing)) from error
+            raise RuntimeError(f"PaddleOCR를 불러오지 못했습니다 ({error}) → npm run setup:ocr 를 실행하세요") from error
 
         started = time.perf_counter()
         self._ocr = PaddleOCR(
