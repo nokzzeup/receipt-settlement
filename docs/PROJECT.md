@@ -83,14 +83,14 @@
 | `frontend/` | React PWA | 신율겸 |
 | `backend/app/api/` | 라우터 | 이성민 |
 | `backend/app/models/`, `backend/app/db/` | 모델, 세션, 마이그레이션 | 김도현 |
-| `backend/app/ocr/` | 전처리·OCR 엔진 | 김도현 |
+| `backend/app/ocr/` | 전처리·OCR 엔진 (`npm run setup:ocr`로 설치) | 김도현 |
 | `backend/app/parsing/` | 영수증 필드 파싱 | 이성민 |
 | `backend/app/receipts/` | 영수증 접수 (이미지 검증·저장, 카드번호 마스킹, OCR 호출) | 이성민 |
 | `backend/app/classify/` | 품목→계정 분류 | 이성민 |
 | `backend/app/settlement/` | 정산 엔진 | 이성민 |
 | `backend/tests/` | 테스트 | 전원 |
 | `dataset/` | 테스트 영수증 이미지 + 정답 라벨(JSON) | 김도현 |
-| `scripts/` | 실행 스크립트, 정확도 측정 등 유틸 | — |
+| `scripts/` | 실행 스크립트 (정확도 측정은 `backend/app/ops/evaluate.py` → `npm run ocr:eval`) | — |
 
 ## 팀
 
@@ -105,7 +105,7 @@
 | 0 | 뼈대: 레포 구조, 실행 명령, 헬스체크, 모델·첫 마이그레이션, Mock OCR, 프론트 라우팅·빈 화면 | 완료 |
 | 1 | 인증, 조직 생성, 초대 코드 참여, 역할 권한 | 완료 (계정과목 등록은 2단계로 이월) |
 | 2 | 영수증 업로드 → Mock OCR → 확인·수정 화면 → 지출 등록 | 완료 (+ 계정과목 관리, 제출, 파싱 1차를 앞당김) |
-| 3 | 실제 OCR(전처리 + PaddleOCR) + 파싱 | 파싱은 1차(규칙 기반) 있음 → 실제 OCR 출력으로 보강 |
+| 3 | 실제 OCR(전처리 + PaddleOCR) + 파싱 | 완료 (시험 영수증 기준) — 실제 영수증 데이터로 정확도 측정·보강은 계속 |
 | 4 | 품목→계정 자동 분류 + 수정 학습 | |
 | 5 | 승인 흐름, 정산 엔진(환급 집계·완료), 예산 잔액 | |
 | 6 | 리포트·엑셀, 중복 감지 | |

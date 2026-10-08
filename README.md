@@ -5,8 +5,9 @@
 
 > 📄 범위·규칙·모델: [docs/PROJECT.md](docs/PROJECT.md) · 설계 결정과 이유: [docs/DECISIONS.md](docs/DECISIONS.md)
 
-**지금 되는 것 (2단계까지)**: 회원가입·로그인 → 조직 만들기/초대 코드로 참여 → 역할·계정과목(예산) 관리 →
-영수증 촬영·업로드 → 인식 결과(지금은 Mock OCR 고정 샘플) 확인·수정 → 임시 저장 / 제출 → 지출 목록
+**지금 되는 것 (3단계까지)**: 회원가입·로그인 → 조직 만들기/초대 코드로 참여 → 역할·계정과목(예산) 관리 →
+영수증 촬영·업로드 → **실제 OCR 인식**(PaddleOCR — 설치한 PC만, 나머지는 고정 샘플) → 확인·수정 → 임시 저장 / 제출 → 지출 목록
+· 노트북 한 대를 팀 공용 서버로 (같은 와이파이·다른 와이파이·LTE에서 접속)
 
 | 구성 | 기술 |
 |---|---|
@@ -86,6 +87,8 @@ git push                       # 거절되면 git pull 후 다시 push
 | `npm run dev:host` | 폰에서도 접속 가능하게 실행 (아래 "폰에서 테스트") |
 | `npm run serve` | 팀 공용 서버로 실행 (server 파일 더블클릭과 같음, 아래 "팀 공용 서버") |
 | `npm test` | 백엔드 테스트 |
+| `npm run setup:ocr` | 실제 OCR(PaddleOCR) 설치 — 공용 서버 PC·OCR 담당만 (아래 "실제 OCR") |
+| `npm run ocr:eval` | OCR + 파싱 정확도 채점 (`dataset/` 사진 + 정답) |
 | `npm run db:revision "add xxx"` | 모델 수정 후 마이그레이션 생성 → **생성된 파일 꼭 읽어보기** |
 | `npm run db:upgrade` | 마이그레이션 적용 (`npm run dev`가 시작할 때 자동으로 함) |
 | `npm run db:check` | 모델과 마이그레이션이 어긋났는지 검사 |
@@ -154,6 +157,33 @@ git push                       # 거절되면 git pull 후 다시 push
 
 ---
 
+## 실제 OCR (PaddleOCR)
+
+기본은 **가짜 OCR(Mock)** — 어떤 사진을 올려도 고정 샘플이 채워진다. 설치할 것이 없어서 화면·API 개발은 이걸로 충분.
+실제 인식은 **공용 서버로 쓰는 PC**와 **OCR 담당(김도현)** 만 켜면 된다.
+
+```
+npm run setup:ocr
+```
+- 하는 일: OCR 패키지 설치(약 300MB, 몇 분) → 모델 파일 받기(약 25MB, `.tools/paddlex`) → 시험 이미지로 자가 진단 → `.env`의 `OCR_ENGINE`을 `paddle`로 변경
+- 되는 PC: **Windows(64비트) / Apple Silicon Mac**, Python 3.12·3.13. Intel Mac·ARM 윈도우는 설치 파일이 없어서 Mock으로 개발
+- 서버를 켜면 창에 `인식(OCR): 실제 OCR(PaddleOCR) 사용 중`이 뜬다 (개발 화면은 맨 위 표시줄에 OCR 상태)
+- `.env`에 `OCR_ENGINE=paddle`만 적어둬도 더블클릭 실행(start·server 파일)이 필요하면 알아서 설치한다
+- 끄기: `.env`의 `OCR_ENGINE=mock`
+- 속도: 한 장에 약 2~5초 (2코어 테스트 PC 기준. 노트북은 보통 더 빠름). 여러 명이 동시에 올리면 한 장씩 차례로 처리
+- 인식에 실패해도(모델 오류 등) 업로드는 되고 "직접 입력"으로 처리된다
+
+**정확도 측정** — `dataset/images`에 사진, `dataset/labels`에 정답 JSON(형식: `dataset/README.md`)을 넣고
+```
+npm run ocr:eval            # 가게명·결제일시·합계·품목 정답률
+npm run ocr:eval -- -v      # 틀린 항목의 정답/인식 값까지
+npm run ocr:eval -- --refresh   # 전처리·엔진 설정을 바꿨을 때 (OCR부터 다시)
+```
+- 처음엔 사진마다 OCR을 돌리고 결과를 `dataset/ocr-cache/`에 저장 → 파서만 고쳤으면 다음부터 몇 초 만에 다시 채점 (OCR 설치 없는 PC에서도 가능)
+- 파서·전처리를 바꾸면 **바꾸기 전/후 점수를 비교**해서 좋아질 때만 반영
+
+---
+
 ## 폴더 구조
 
 ```
@@ -163,7 +193,7 @@ git push                       # 거절되면 git pull 후 다시 push
 ├── server-windows.bat        더블클릭 실행 — 팀 공용 서버 (Windows)
 ├── server-mac.command        더블클릭 실행 — 팀 공용 서버 (Mac)
 ├── server-data/              공용 서버의 DB·영수증 사진·백업 (git 제외, 서버 PC에만 생김)
-├── .tools/                   공용 서버가 내려받는 외부 접속 도구 cloudflared (git 제외)
+├── .tools/                   자동으로 내려받는 도구·모델 — cloudflared, PaddleOCR 모델 (git 제외)
 ├── package.json              실행 명령 모음 (npm start / dev / test ...)
 ├── docs/                     PROJECT.md(범위·규칙·모델), DECISIONS.md(설계 결정과 이유)
 ├── scripts/                  위 명령이 부르는 실행 스크립트 + 정확도 측정 등 유틸
@@ -175,15 +205,15 @@ git push                       # 거절되면 git pull 후 다시 push
 │   ├── app/
 │   │   ├── main.py           FastAPI 앱
 │   │   ├── web.py            공용 서버 모드에서 빌드된 화면을 같이 내보내기
-│   │   ├── ops/              운영 도구 (DB 백업)
+│   │   ├── ops/              운영 도구 — DB 백업, 정확도 측정(evaluate.py)
 │   │   ├── core/             설정(config.py), 시간대(timezone.py)
 │   │   ├── api/              라우터 — v1/*.py (auth, orgs, categories, expenses), deps.py(권한)  (이성민)
 │   │   ├── schemas/          API 요청·응답 스키마 (바뀌면 프론트 gen:api)          (이성민)
 │   │   ├── receipts/         영수증 접수: 이미지 검증·저장, 카드번호 마스킹, OCR 호출  (이성민)
 │   │   ├── db/               Base, 세션, 커스텀 타입, migrations/ (Alembic)     (김도현)
 │   │   ├── models/           도메인 모델 9개                                      (김도현)
-│   │   ├── ocr/              OcrEngine 인터페이스, Mock/Paddle 엔진              (김도현)
-│   │   ├── parsing/          ReceiptFields 스키마 + parse() (1차 규칙 기반)         (이성민)
+│   │   ├── ocr/              엔진 인터페이스, Mock·PaddleOCR 엔진, 전처리, 자가 진단 (김도현)
+│   │   ├── parsing/          ReceiptFields 스키마 + parse() (규칙 기반), 행 묶기    (이성민)
 │   │   ├── classify/         품목 → 계정과목 분류 (4단계), 기본 계정과목            (이성민)
 │   │   └── settlement/       정산 엔진 (5단계)                                     (이성민)
 │   └── tests/
@@ -202,16 +232,16 @@ git push                       # 거절되면 git pull 후 다시 push
 
 ### 이성민 — 백엔드 API · 파싱 · 분류 · 정산
 - `backend/app/api/v1/` — 1·2단계 완료. 조직 안 API는 `api/deps.py`의 `CurrentMembership`(멤버 아니면 404) / `require_roles(...)`(역할 아니면 403)를 반드시 거친다
-- `backend/app/parsing/parser.py` — 1차(규칙 기반) 있음. 3단계에서 실제 PaddleOCR 출력을 `tests/test_parser.py`에 케이스로 추가하면서 보강
+- `backend/app/parsing/parser.py` — 실제 PaddleOCR 출력으로 보강함. 실제 영수증 데이터가 모이면 `npm run ocr:eval -- -v`로 틀린 곳을 보고 규칙 수정 → 점수가 오를 때만 반영. 고친 사례는 `tests/fixtures/paddle/`처럼 샘플로 남겨 회귀 테스트
 - `classify/` — 4단계: 업로드 때 품목 자동 분류 자리는 `receipts/intake.py`에 표시해 둠. `settlement/` — 5단계, pytest 필수
 
 ### 김도현 — DB · OCR · 데이터셋
-- `backend/app/ocr/paddle.py` — 3단계 PaddleOCR 엔진. 설치할 버전을 먼저 정해서 팀에 공유 (버전별 API 차이 큼). `.env`의 `OCR_ENGINE=paddle`로 전환
-  - 업로드되면 `recognize(이미지 바이트)`가 불린다. 들어오는 형식은 JPG·PNG·WEBP(15MB 이하)
-  - 폰 사진은 EXIF 회전 정보만 있고 실제 픽셀은 누워 있는 경우가 많음 → 디코딩할 때 회전이 적용되는지 설치 버전에서 확인
-  - 엔진이 예외를 던져도 업로드는 성공하고 "인식 실패, 직접 입력"으로 처리됨 (로그에 남음)
+- **먼저 `npm run setup:ocr`** (위 "실제 OCR"). 엔진은 `backend/app/ocr/paddle.py`(설정 근거 주석), 전처리는 `preprocess.py`
+  - 버전은 `backend/requirements-ocr.txt`에 고정 (paddlepaddle 3.3.1 / paddleocr 3.7.0). 올리려면 옵션·결과 모양을 다시 확인하고 점수 비교
+- **지금 제일 중요한 일: 실제 영수증 데이터** — 지금 점수는 직접 만든 시험 영수증 기준이라 실제 정확도는 아직 모름
+  - 업종 섞어서 20~30장 + 정답 라벨 → `npm run ocr:eval` 로 첫 점수 (형식·팁: `dataset/README.md`)
+  - 그다음 전처리 후보(바랜 감열지 대비 보정, 그림자 보정, 영수증 영역 자르기 — `preprocess.py` 주석)를 하나씩 넣어보고 점수가 오를 때만 반영
 - `backend/app/models/` — 모델 수정하면 `npm run db:revision "설명"` → 생성 파일 검토 → `npm run db:check`
-- `dataset/` — 영수증 수집·라벨링 (형식: `dataset/README.md`)
 
 ### 신율겸 — 프론트 PWA
 - 동작하는 화면: 로그인, 조직 선택, 조직 설정(초대 코드·역할·계정과목), 지출 목록, 영수증 촬영, 지출 확인·수정(`ExpenseDetailPage` + `components/ExpenseForm.tsx`). 남은 화면: 정산 현황(5단계)
@@ -255,6 +285,9 @@ git push                       # 거절되면 git pull 후 다시 push
 | (Windows) 실행 창 안을 클릭했더니 서버가 멈춘 것 같음 | 창이 '선택 모드'로 바뀐 것 → `Esc`를 누르면 다시 진행 |
 | 화면 위 표시줄이 `연결 실패` | 터미널의 `[api]` 로그에 에러가 있는지 확인 |
 | 다른 PC·폰에서 공용 서버 주소가 안 열림 | ① 같은 와이파이인지 ② 서버 창이 켜져 있는지 ③ Windows 보안 → 방화벽 및 네트워크 보호 → 방화벽에서 앱 허용 → `python.exe`의 '개인' 체크 ④ 설정 → 네트워크 및 인터넷 → Wi-Fi에서 네트워크 프로필을 '개인'으로 ⑤ 학교 와이파이면 노트북 핫스팟으로 |
+| `npm run setup:ocr`에서 `이 컴퓨터용 PaddleOCR 설치 파일이 없어요` | Intel Mac·ARM 윈도우. 이 PC는 `OCR_ENGINE=mock`으로 개발하고 실제 인식은 공용 서버 PC에서 |
+| 서버 창에 `실제 OCR을 켜지 못했어요` | 위쪽 Traceback 확인 → 서버를 끄고 `npm run setup:ocr` 다시. 그동안 업로드는 되고 직접 입력으로 처리됨 |
+| 인식 결과가 엉뚱함 | 사진 문제(흐림·그림자·일부만 찍힘)인지 먼저 확인. 같은 사진을 `dataset/`에 정답과 함께 넣어 `npm run ocr:eval -- -v`로 공유 |
 | 공용 서버 창에 `외부 접속 주소를 만들지 못했어요` | 인터넷 연결 확인. 학교·회사 네트워크가 터널을 막는 경우가 있음 → 핫스팟으로 서버를 다시 켜기. 같은 와이파이 주소는 그대로 됨 |
 | https 주소가 `연결할 수 없음`/에러 | 서버 창이 꺼졌거나 다시 켜서 주소가 바뀐 것 → 서버 창에 뜬 최신 주소로 접속 |
 | `로그인 실패가 너무 많아요` | 같은 계정으로 10분에 10번 틀려서 잠시 막힌 것 → 메시지의 시간만큼 기다리기 (서버를 다시 켜도 풀림) |

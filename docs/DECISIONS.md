@@ -99,6 +99,24 @@
   - 공용 서버 모드에서 **API 문서(/docs·/openapi.json) 끔**
 - 남은 위험(알고 감수): 회원가입은 누구나 가능(조직 데이터는 초대 코드 없이는 못 봄), 서버 = 개인 노트북
 
+### 실제 OCR (3단계, 2026-10-08)
+- **PaddleOCR 3.7.0 + paddlepaddle 3.3.1 고정** (`backend/requirements-ocr.txt`, ASCII). Windows x64·Apple Silicon Mac·Linux용 Python 3.12/3.13 설치 파일 확인. Intel Mac·ARM 윈도우는 설치 파일이 없음 → Mock
+- **OCR은 설치한 PC만**: 기본 `OCR_ENGINE=mock`(설치 0). `npm run setup:ocr` = 설치 → 모델 받기 → 자가 진단 → `.env`를 paddle로. `OCR_ENGINE=paddle`인데 설치가 안 됐으면(또는 버전 목록이 바뀌면) 더블클릭 실행이 자동으로 설치 (지문: `backend/.venv/ocr-stamp.txt`)
+- 엔진 설정 (시험 영수증 사진, 2코어 CPU에서 직접 측정해서 결정 — 실제 데이터로 다시 확인할 것)
+  - 검출 PP-OCRv5_mobile_det + 인식 korean_PP-OCRv5_mobile_rec: 기본값(server_det)은 한 장 약 11초 vs mobile 약 3초, 찾은 박스 수 거의 같음
+  - `enable_mkldnn=False`: paddlepaddle 3.3.1의 CPU 가속 경로에서 NotImplementedError(ConvertPirAttribute2RuntimeAttribute) → 끄면 정상
+  - 문서 방향 분류 켬: 거꾸로·옆으로 찍은 사진도 같은 결과. 휜 종이 펴기·글줄 방향 분류는 끔
+  - 검출 입력 긴 변 1600px 제한, 전처리에서 사진 긴 변 3200px 제한 + EXIF 회전 적용(OpenCV 4.10 imdecode가 적용함 확인)
+  - 모델 파일(약 25MB)은 `.tools/paddlex`에 (git 제외, Hugging Face에서 자동 다운로드)
+- **실패해도 업로드는 됨**: 엔진 준비 실패 → `unavailable` 엔진(인식만 실패 → 직접 입력). OCR은 한 번에 한 장(잠금)
+- 공용 서버는 켤 때 모델을 미리 불러옴(첫 업로드 지연 방지). 개발 모드는 첫 업로드 때 (코드 저장마다 재시작되므로)
+- `/api/v1/health`에 `ocr`(mock·paddle·unavailable·pending) — 상태 확인이 모델 로딩을 일으키지 않게 pending 따로
+- **파서 보강** (실제 PaddleOCR 출력 관찰 기반): 사진 기울기만큼 박스 좌표를 되돌려 행 묶기, 날짜·시각 붙은 경우, 합계는 결제금액·받을금액 > 합계·총액 > 카드결제 순(할인 전/후 구분), '상호:·가맹점명' 가게명, 품목 제외 단어 보강(받은금액·일시불·포인트 등)
+- **마스킹 보강**: OCR이 하이픈을 `_`, `*`을 `x·#`로 읽은 카드번호, '카드번호/CARD NO' 뒤 숫자는 형식이 깨져도 마지막 4자리만
+- OCR은 띄어쓰기를 자주 빼먹음("이마트24강남역점") → 고치지 않고 그대로 (사용자가 화면에서 수정). 채점은 띄어쓰기 무시
+- **정확도 측정 도구**(`npm run ocr:eval`, `app/ops/evaluate.py`)를 7단계에서 당겨 옴: 개선을 숫자로 판단하려고. OCR 결과는 마스킹해서 `dataset/ocr-cache`에 캐시(사진 해시 + `ENGINE_SIGNATURE`가 같을 때만 재사용)
+- **한계**: 지금까지의 점수(시험 영수증 4장 전부 정답)는 직접 만든 사진 기준. 실제 영수증 정확도는 데이터를 모아서 다시 재야 함
+
 ### 실행 구조
 - 루트 `package.json`의 npm 명령 하나로 백엔드와 프론트를 같이 실행 (`concurrently`, Ctrl+C 한 번에 둘 다 종료)
 - 더블클릭 실행 파일(`start-windows.bat`, `start-mac.command`): 패키지 목록(requirements·package-lock)의 지문을 `backend/.venv/setup-stamp.txt`에 남겨두고, 바뀌었으면 실행 전에 setup을 자동으로 다시 한다 → `git pull` 후에도 더블클릭만 하면 됨
