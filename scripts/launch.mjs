@@ -9,12 +9,14 @@ import path from 'node:path'
 import {
   APP_URL,
   ROOT,
+  checkOcrStatus,
   ensurePortsFree,
   isAppRunning,
   isOcrSetupNeeded,
   isSetupUpToDate,
   openBrowser,
   runForeground,
+  startupSummary,
 } from './lib.mjs'
 
 const SCRIPTS = path.join(ROOT, 'scripts')
@@ -26,6 +28,7 @@ function failWithHint(code) {
 }
 
 console.log('\n=== 영수증 정산 개발 서버 ===')
+console.log(startupSummary())
 
 if (await isAppRunning()) {
   console.log(`이미 실행 중이라 브라우저만 엽니다: ${APP_URL}`)
@@ -74,7 +77,9 @@ while (Date.now() - startedAt < READY_TIMEOUT_MS) {
 }
 if (ready) {
   openBrowser(APP_URL)
-  console.log(`\n>>> 준비 완료: ${APP_URL} 을 브라우저로 열었어요. 끄려면 이 창을 닫으세요 (또는 Ctrl+C).\n`)
+  const ocr = await checkOcrStatus(APP_URL)
+  console.log(`\n>>> 준비 완료: ${APP_URL} 을 브라우저로 열었어요. 끄려면 이 창을 닫으세요 (또는 Ctrl+C).`)
+  console.log(`    인식(OCR): ${ocr.text}\n`)
 } else {
   console.log('\n[주의] 2분이 지나도 서버가 응답하지 않아요. 위 [api]·[web] 로그에 에러가 있으면 복사해서 보내주세요.\n')
 }

@@ -1,9 +1,11 @@
 // 공용 서버 모드: 이 PC(노트북)를 팀 서버로 — server-windows.bat / server-mac.command / npm run serve
 //
-// 1) 이미 켜져 있으면 접속 주소만 다시 안내
+// 0) 맨 위에 코드 버전 + .env 의 OCR 설정을 찍는다 (창 캡처 한 장으로 상태를 알 수 있게)
+// 1) 이미 켜져 있으면 접속 주소·OCR 상태만 다시 안내
 // 2) 포트 확인 → 처음이거나 패키지가 바뀌었으면(git pull 등) setup부터 (OCR_ENGINE=paddle 이면 OCR 설치도)
 // 3) 화면 빌드(frontend/dist) → 4) 운영 DB 자동 백업 → DB 구조 업데이트
-// 5) 0.0.0.0:포트로 실행 (화면 + API를 포트 하나로) → 같은 와이파이의 다른 PC·폰이 접속할 주소 안내
+// 5) 0.0.0.0:포트로 실행 (화면 + API를 포트 하나로) → 같은 와이파이의 다른 PC·폰이 접속할 주소 + OCR 상태 안내
+//    실제 OCR이면 켤 때 모델을 미리 불러오느라 준비가 늦다 → 시간 제한 없이 기다리며 1분마다 안내
 // 6) 외부 접속 터널(Cloudflare Quick Tunnel) → 다른 와이파이·LTE에서도 들어올 https 주소 안내 (tunnel.mjs)
 //    실패해도 같은 와이파이 접속은 그대로 동작. 끄려면 .env 에 SERVER_TUNNEL=off
 //
@@ -20,18 +22,21 @@ import {
   SERVER_PORT,
   SERVER_PORTS,
   VENV_PYTHON,
+  checkOcrStatus,
   ensurePortsFree,
   isOcrSetupNeeded,
   isServerRunning,
   isSetupUpToDate,
   lanAddresses,
+  ocrEngineSetting,
   openBrowser,
   runPythonForeground,
+  startupSummary,
 } from './lib.mjs'
 import { ensureCloudflared, startQuickTunnel, tunnelEnabled } from './tunnel.mjs'
 
 const LOCAL_URL = `http://127.0.0.1:${SERVER_PORT}`
-const READY_TIMEOUT_MS = 120_000
+const NOTICE_EVERY_MS = 60_000
 // 지금 쓰는 외부 주소를 적어두는 파일 → 서버 파일을 또 더블클릭하면 다시 안내할 수 있게
 const PUBLIC_URL_FILE = path.join(SERVER_DATA_DIR, 'public-url.txt')
 
@@ -63,7 +68,9 @@ function python(title, args) {
   step(title, VENV_PYTHON, args, { cwd: BACKEND, env: { ...process.env, ...SERVER_ENV } })
 }
 
-function printLocalAddresses({ elsewhere = false } = {}) {
+/** 접속 주소 + 인식(OCR) 상태. OCR 줄은 어떤 경우에도 한 줄 찍는다 (서버에 못 물어보면 확인 방법 안내) */
+async function printServerInfo({ elsewhere = false } = {}) {
+  const ocr = await checkOcrStatus(LOCAL_URL)
   const lan = lanAddresses()
   console.log(
     elsewhere
@@ -77,24 +84,12 @@ function printLocalAddresses({ elsewhere = false } = {}) {
   for (const { name, address } of lan) {
     console.log(`    같은 와이파이의 PC·폰:      http://${address}:${SERVER_PORT}   (${name})`)
   }
+  console.log(`    인식(OCR):                  ${ocr.text}`)
   console.log('    - 같은 와이파이에서 안 열리면: Windows 방화벽 "허용", 학교 와이파이면 핫스팟으로')
   console.log(`    - 운영 데이터: ${SERVER_DATA_DIR}  (켤 때마다 DB 자동 백업 → server-data/backups)`)
-}
-
-/** 인식(OCR) 상태 안내 — 서버 /api/v1/health 의 ocr 값 */
-async function printOcrStatus() {
-  let ocr = null
-  try {
-    const response = await fetch(`${LOCAL_URL}/api/v1/health`, { signal: AbortSignal.timeout(3000) })
-    ocr = (await response.json()).ocr
-  } catch {
-    return
-  }
-  if (ocr === 'paddle') console.log('    - 인식(OCR): 실제 OCR(PaddleOCR) 사용 중 — 한 장에 몇 초 걸려요')
-  else if (ocr === 'mock') console.log('    - 인식(OCR): 가짜(Mock, 고정 샘플) — 실제 OCR을 켜려면 서버를 끄고 npm run setup:ocr')
-  else if (ocr === 'unavailable') {
-    console.log('\n[주의] 실제 OCR을 켜지 못했어요 (위 로그의 Traceback 확인). 업로드는 되고, 내용은 직접 입력하게 돼요.')
-    console.log('       → 서버를 끄고 npm run setup:ocr 를 다시 실행해 보세요.\n')
+  if (ocr.ocr === 'unavailable') {
+    console.log('\n[주의] 실제 OCR이 꺼진 채로 켜졌어요 → 서버를 끄고 npm run setup:ocr 를 다시 실행해 보세요.')
+    console.log('       그래도 안 되면 이 창을 맨 위부터 캡처해서 보내주세요.')
   }
 }
 
@@ -142,9 +137,10 @@ async function startTunnel() {
 }
 
 console.log('\n=== 영수증 정산 공용 서버 ===')
+console.log(startupSummary())
 
 if (await isServerRunning()) {
-  printLocalAddresses({ elsewhere: true })
+  await printServerInfo({ elsewhere: true })
   try {
     console.log(`    다른 와이파이·LTE에서도:   ${readFileSync(PUBLIC_URL_FILE, 'utf8').trim()}`)
   } catch {
@@ -183,7 +179,11 @@ rmSync(PUBLIC_URL_FILE, { force: true }) // 지난번 외부 주소는 이제 �
 python('[2/3] 운영 DB 백업 + 구조 업데이트 (server-data)', ['-m', 'app.ops.backup'])
 python('      DB 구조 업데이트', ['-m', 'alembic', 'upgrade', 'head'])
 
+const loadsOcrModel = ocrEngineSetting() === 'paddle'
 console.log(`\n[3/3] 서버 시작 (포트 ${SERVER_PORT})`)
+if (loadsOcrModel) {
+  console.log('      실제 OCR 모델을 미리 불러와요 → 준비까지 10~30초 더 걸려요 (설치 직후 처음엔 더 걸릴 수 있음)')
+}
 // Ctrl+C로 끈 경우엔 정상 종료 (실행 파일이 에러 화면에서 멈추지 않게)
 let stoppedByUser = false
 let shuttingDown = false
@@ -209,25 +209,25 @@ runPythonForeground(
   },
 )
 
+// 준비될 때까지 기다린다. 시간 제한은 두지 않음 — 서버가 에러로 꺼지면 위 콜백이 안내 후 종료시킨다
 const startedAt = Date.now()
-let ready = false
-while (Date.now() - startedAt < READY_TIMEOUT_MS) {
+let nextNoticeAt = NOTICE_EVERY_MS
+while (!(await isServerRunning())) {
   await new Promise((resolve) => setTimeout(resolve, 700))
-  if (await isServerRunning()) {
-    ready = true
-    break
+  const waited = Date.now() - startedAt
+  if (waited >= nextNoticeAt) {
+    nextNoticeAt += NOTICE_EVERY_MS
+    const why = loadsOcrModel ? ' — 실제 OCR 모델을 불러오는 중일 수 있어요' : ''
+    console.log(`\n[안내] 서버가 아직 준비 중이에요 (${Math.round(waited / 60_000)}분째)${why}.`)
+    console.log('       위에 에러(Traceback)가 보이거나 5분이 넘도록 이러면 이 창을 캡처해서 보내주세요.\n')
   }
 }
-if (!ready) {
-  console.log('\n[주의] 2분이 지나도 서버가 응답하지 않아요. 위 로그에 에러가 있으면 복사해서 보내주세요.\n')
+
+await printServerInfo()
+openBrowser(LOCAL_URL)
+if (tunnelEnabled()) {
+  tunnelChild = await startTunnel()
 } else {
-  printLocalAddresses()
-  await printOcrStatus()
-  openBrowser(LOCAL_URL)
-  if (tunnelEnabled()) {
-    tunnelChild = await startTunnel()
-  } else {
-    console.log('    - 외부 접속(터널)은 꺼져 있어요 (.env 의 SERVER_TUNNEL=off)')
-    console.log('    - 접속 기록(누가 어떤 요청을 했는지)이 아래에 계속 찍힙니다\n')
-  }
+  console.log('    - 외부 접속(터널)은 꺼져 있어요 (.env 의 SERVER_TUNNEL=off)')
+  console.log('    - 접속 기록(누가 어떤 요청을 했는지)이 아래에 계속 찍힙니다\n')
 }

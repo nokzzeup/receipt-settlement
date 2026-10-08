@@ -114,6 +114,55 @@ export function isOcrSetupNeeded() {
   }
 }
 
+/** 실행 창 맨 위에 찍는 한 줄: 코드 버전 + .env 의 OCR 설정 → 캡처 한 장으로 어떤 상태인지 알 수 있게 */
+export function startupSummary() {
+  const setting = ocrEngineSetting()
+  const label = { paddle: 'paddle(실제 OCR)', mock: 'mock(가짜, 고정 샘플)' }[setting] ?? `${setting} ← mock 또는 paddle만 가능`
+  return `    코드 버전: ${codeVersion() ?? '알 수 없음'} · 인식(OCR) 설정: ${label}`
+}
+
+// 실행 창에 인식(OCR) 상태를 항상 한 줄 보여준다 — 안 보이면 왜 인식이 안 되는지 알 수 없음
+const OCR_STATUS_TEXT = {
+  paddle: '실제 OCR(PaddleOCR) 사용 중 — 한 장에 몇 초 걸려요',
+  pending: '실제 OCR(PaddleOCR) — 첫 업로드 때 모델을 불러와서 첫 장만 10~30초 더 걸려요',
+  mock: '가짜(Mock) — 사진과 상관없이 고정 샘플("행복마트 테스트점")이 채워져요 → 실제 OCR은 서버를 끄고 npm run setup:ocr',
+  unavailable: '[실패] 실제 OCR을 켜지 못했어요 (위쪽 Traceback 참고) — 업로드는 되고, 내용은 직접 입력',
+}
+
+/** 실행 중인 백엔드(/api/v1/health)에 OCR 상태를 물어본다 → { ocr: paddle|pending|mock|unavailable|null, text } */
+export async function checkOcrStatus(baseUrl) {
+  let ocr = null
+  try {
+    const response = await fetch(`${baseUrl}/api/v1/health`, { signal: AbortSignal.timeout(5000) })
+    const body = await response.json()
+    if (Object.hasOwn(OCR_STATUS_TEXT, body.ocr)) ocr = body.ocr
+  } catch {
+    // 응답 없음·예전 버전 → 아래 안내
+  }
+  const text = ocr
+    ? OCR_STATUS_TEXT[ocr]
+    : `확인 못 했어요 → 브라우저에서 ${baseUrl}/api/v1/health 를 열어 "ocr" 값 확인 ("ocr"이 없으면 예전 버전 코드)`
+  return { ocr, text }
+}
+
+/** 이 폴더 코드의 커밋 번호(앞 7자리). git 프로그램 없이 .git 폴더를 직접 읽는다. 모르면 null */
+export function codeVersion() {
+  try {
+    const gitDir = path.join(ROOT, '.git')
+    const head = readFileSync(path.join(gitDir, 'HEAD'), 'utf8').trim()
+    if (!head.startsWith('ref: ')) return head.slice(0, 7) // 특정 커밋으로 이동해 둔 상태(detached)
+    const ref = head.slice('ref: '.length)
+    const looseRef = path.join(gitDir, ...ref.split('/'))
+    if (existsSync(looseRef)) return readFileSync(looseRef, 'utf8').trim().slice(0, 7)
+    // clone 직후 등: 브랜치 위치가 packed-refs 한 파일에 모여 있음
+    const packed = readFileSync(path.join(gitDir, 'packed-refs'), 'utf8')
+    const line = packed.split(/\r?\n/).find((entry) => entry.endsWith(` ${ref}`))
+    return line ? line.slice(0, 7) : null
+  } catch {
+    return null
+  }
+}
+
 export function requireVenv() {
   if (!existsSync(VENV_PYTHON)) fail('백엔드 환경이 아직 없습니다. 먼저 `npm run setup` 을 실행하세요.')
 }
