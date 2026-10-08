@@ -13,6 +13,7 @@ ASCII_ONLY_FILES = [
     "backend/alembic.ini",
     "backend/requirements.txt",
     "backend/requirements-dev.txt",
+    "backend/requirements-ocr.txt",
     "backend/app/db/migrations/script.py.mako",
     "start-windows.bat",
     "server-windows.bat",

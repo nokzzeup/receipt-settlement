@@ -512,6 +512,11 @@ export interface components {
              * @enum {string}
              */
             database: "ok" | "error";
+            /**
+             * Ocr
+             * @enum {string}
+             */
+            ocr: "mock" | "paddle" | "unavailable" | "pending";
         };
         /** InviteCodeOut */
         InviteCodeOut: {
@@ -768,6 +773,13 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
                 };
+            };
+            /** @description 로그인 실패가 너무 많아 잠시 차단됨 */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

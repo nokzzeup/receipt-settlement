@@ -1,0 +1,37 @@
+{
+  "store_name": "이마트24 강남역점",
+  "paid_at": "2026-09-30T18:42:17+09:00",
+  "total_amount": 18600,
+  "items": [
+    {
+      "name": "삼다수 2L",
+      "quantity": 6,
+      "unit_price": 1300,
+      "amount": 7800
+    },
+    {
+      "name": "새우깡",
+      "quantity": 2,
+      "unit_price": 1500,
+      "amount": 3000
+    },
+    {
+      "name": "코카콜라 1.5L",
+      "quantity": 2,
+      "unit_price": 3200,
+      "amount": 6400
+    },
+    {
+      "name": "종이컵 50입",
+      "quantity": 1,
+      "unit_price": 2400,
+      "amount": 2400
+    },
+    {
+      "name": "행사할인",
+      "quantity": 1,
+      "unit_price": null,
+      "amount": -1000
+    }
+  ]
+}

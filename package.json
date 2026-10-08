@@ -8,10 +8,12 @@
   "scripts": {
     "start": "node scripts/launch.mjs",
     "setup": "node scripts/setup.mjs",
+    "setup:ocr": "node scripts/setup-ocr.mjs",
     "dev": "node scripts/dev.mjs",
     "dev:host": "node scripts/dev.mjs --host",
     "serve": "node scripts/serve.mjs",
     "test": "node scripts/py.mjs -m pytest",
+    "ocr:eval": "node scripts/py.mjs -m app.ops.evaluate",
     "db:upgrade": "node scripts/py.mjs -m alembic upgrade head",
     "db:revision": "node scripts/py.mjs -m alembic revision --autogenerate -m",
     "db:check": "node scripts/py.mjs -m alembic check",

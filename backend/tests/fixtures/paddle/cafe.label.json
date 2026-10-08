@@ -1,0 +1,25 @@
+{
+  "store_name": "카페 모아 홍대점",
+  "paid_at": "2026-10-02T14:20:00+09:00",
+  "total_amount": 30000,
+  "items": [
+    {
+      "name": "아이스 아메리카노",
+      "quantity": 3,
+      "unit_price": null,
+      "amount": 13500
+    },
+    {
+      "name": "카페라떼",
+      "quantity": 2,
+      "unit_price": null,
+      "amount": 10000
+    },
+    {
+      "name": "치즈케이크",
+      "quantity": 1,
+      "unit_price": null,
+      "amount": 6500
+    }
+  ]
+}

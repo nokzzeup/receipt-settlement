@@ -42,3 +42,24 @@ def test_mask_ocr_result_keeps_original_untouched() -> None:
     assert not any("9410" in line.text for line in masked.lines)
     assert [line.bbox for line in masked.lines] == [line.bbox for line in raw.lines]
     assert masked.engine == raw.engine
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        # 실제 PaddleOCR 출력: 하이픈 하나를 _ 로 읽음
+        ("카드번호 5365-10**_****-7788", "카드번호 ****-****_****-7788"),
+        # 가린 자리를 x·# 로 읽은 경우
+        ("5365-10xx-xxxx-7788", "****-**xx-xxxx-7788"),
+        # 형식이 깨져서(0을 O로 읽음) 패턴에 안 걸려도 '카드번호' 뒤 숫자는 마지막 4자리만 남김
+        ("카드번호: 5365 1O** **** 7788", "카드번호: **** *O** **** 7788"),
+        ("CARD NO 4518 4212 3456 7788", "CARD NO **** **** **** 7788"),
+    ],
+)
+def test_ocr_mistakes_in_card_numbers_are_still_masked(text: str, expected: str) -> None:
+    assert mask_card_numbers(text) == expected
+
+
+@pytest.mark.parametrize("text", ["[판매] 2026.09.30 18:42:17", "신용카드 18,600", "카드번호 ****-****-****-3456"])
+def test_keyword_masking_leaves_other_lines_alone(text: str) -> None:
+    assert mask_card_numbers(text) == text

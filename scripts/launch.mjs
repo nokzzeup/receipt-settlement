@@ -2,10 +2,20 @@
 // 1) 이미 실행 중이면 브라우저만 연다
 // 2) 포트가 막혀 있으면(다른 창에 서버가 켜져 있는 등) 이유를 알려주고 멈춘다
 // 3) 처음이거나 패키지 목록이 바뀌었으면(git pull 등) setup부터 자동으로 한다
+//    .env 가 실제 OCR(OCR_ENGINE=paddle)이면 OCR 설치(setup:ocr)도 필요할 때 자동으로
 // 4) 백엔드 + 프론트를 띄우고, 둘 다 응답하면 브라우저를 연다
 import { spawnSync } from 'node:child_process'
 import path from 'node:path'
-import { APP_URL, ROOT, ensurePortsFree, isAppRunning, isSetupUpToDate, openBrowser, runForeground } from './lib.mjs'
+import {
+  APP_URL,
+  ROOT,
+  ensurePortsFree,
+  isAppRunning,
+  isOcrSetupNeeded,
+  isSetupUpToDate,
+  openBrowser,
+  runForeground,
+} from './lib.mjs'
 
 const SCRIPTS = path.join(ROOT, 'scripts')
 const READY_TIMEOUT_MS = 120_000
@@ -33,6 +43,13 @@ if (!isSetupUpToDate()) {
     env: { ...process.env, SETUP_CALLED_BY_LAUNCHER: '1' },
   })
   if (setup.status !== 0) failWithHint(setup.status)
+}
+
+// .env 에서 실제 OCR(OCR_ENGINE=paddle)을 골랐는데 설치가 안 됐거나 버전 목록이 바뀌었으면 설치부터
+if (isOcrSetupNeeded()) {
+  console.log('실제 OCR(OCR_ENGINE=paddle)을 쓰도록 돼 있어서 OCR 설치부터 합니다. 몇 분 걸려요.')
+  const setupOcr = spawnSync(process.execPath, [path.join(SCRIPTS, 'setup-ocr.mjs')], { cwd: ROOT, stdio: 'inherit' })
+  if (setupOcr.status !== 0) failWithHint(setupOcr.status)
 }
 
 // Ctrl+C로 끈 경우엔 정상 종료로 처리 (실행 파일이 에러 화면에서 멈추지 않게)

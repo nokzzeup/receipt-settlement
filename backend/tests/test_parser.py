@@ -123,3 +123,72 @@ def test_row_texts_groups_boxes_by_line() -> None:
     texts = row_texts(MockOcrEngine().recognize(b""))
     assert texts[5] == "상품명 수량 단가 금액"
     assert texts[6] == "생수 2L 2 1,200 2,400"
+
+
+def test_date_glued_to_time() -> None:
+    # 실제 OCR에서 날짜와 시각 사이 공백이 빠지는 경우
+    fields = parse(raw_of([("가게", 60, 20, 60), ("[판매] 2026.09.3018:42:17", 60, 60, 300)]))
+    assert fields.paid_at == datetime(2026, 9, 30, 18, 42, 17, tzinfo=KST)
+
+
+def test_tilted_photo_rows_are_still_grouped() -> None:
+    # 사진을 5도 기울여 찍으면 오른쪽 금액 열이 한 줄 아래로 내려가 보인다 → 기울기를 되돌려서 같은 행으로 묶음
+    import math
+
+    angle = math.radians(5)
+    original = MockOcrEngine().recognize(b"")
+    tilted = OcrRawResult(
+        engine="test",
+        lines=[
+            OcrLine(
+                text=line.text,
+                confidence=line.confidence,
+                bbox=tuple(
+                    (x * math.cos(angle) - y * math.sin(angle), x * math.sin(angle) + y * math.cos(angle) + 100)
+                    for x, y in line.bbox
+                ),
+            )
+            for line in original.lines
+        ],
+    )
+    assert parse(tilted) == parse(original)
+
+
+def test_paid_amount_beats_subtotal_and_receipt_discount_is_an_item() -> None:
+    # '합계'는 할인 전, '결제금액'이 실제로 낸 돈
+    fields = parse(
+        raw_of(
+            [
+                ("가게", 60, 20, 60),
+                ("상품명", 60, 60, 80),
+                ("수량", 400, 60, 50),
+                ("금액", 500, 60, 60),
+                ("도시락", 60, 100, 80),
+                ("1", 415, 100, 15),
+                ("25,400", 490, 100, 75),
+                ("합계", 60, 140, 60),
+                ("25,400", 490, 140, 75),
+                ("행사할인", 60, 180, 100),
+                ("-1,000", 490, 180, 75),
+                ("결제금액", 60, 220, 100),
+                ("24,400", 490, 220, 75),
+            ]
+        )
+    )
+    assert fields.total_amount == 24400
+    assert [(i.name, i.amount) for i in fields.items] == [("도시락", 25400), ("행사할인", -1000)]
+    assert sum(i.amount for i in fields.items) == fields.total_amount
+
+
+def test_store_name_from_label_line() -> None:
+    fields = parse(
+        raw_of(
+            [
+                ("*** 영수증 ***", 200, 20, 200),
+                ("2026-10-08 12:00", 60, 60, 220),
+                ("상호: 행복분식 정문점", 60, 100, 300),
+                ("합계 8,000", 60, 140, 300),
+            ]
+        )
+    )
+    assert fields.store_name == "행복분식 정문점"

@@ -1,0 +1,13 @@
+# Real OCR (stage 3). Only the shared-server PC and the OCR developer need these:  npm run setup:ocr
+# Everyone else keeps OCR_ENGINE=mock (no install needed).
+# KEEP ASCII-ONLY: pip reads this file with the OS encoding (cp949 on Korean Windows).
+#
+# Checked 2026-10-08: wheels exist for Python 3.12/3.13 on Windows x64 and macOS Apple Silicon (and Linux x64).
+# No wheel for Intel Mac or Windows on ARM -> those PCs stay on mock.
+# Changing a version? PaddleOCR options and result format change between versions:
+# re-check backend/app/ocr/paddle.py, bump ENGINE_SIGNATURE there, and compare with npm run ocr:eval.
+paddlepaddle==3.3.1
+paddleocr==3.7.0
+paddlex==3.7.2
+opencv-contrib-python==4.10.0.84   # pinned by paddlex; also used by app/ocr/preprocess.py
+numpy==2.3.5

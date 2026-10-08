@@ -53,7 +53,7 @@ export function ReceiptCapturePage() {
           <input type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={handleChange} />
         </label>
       </div>
-      <p className="muted">영수증 전체가 화면에 들어오게, 글자가 흔들리지 않게 찍어주세요.</p>
+      <p className="muted">영수증 전체가 화면에 들어오게, 글자가 흔들리지 않게 찍어주세요. 인식은 몇 초 걸려요.</p>
 
       {picked && (
         <figure className="preview">

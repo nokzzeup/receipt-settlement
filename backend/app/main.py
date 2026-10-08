@@ -1,18 +1,24 @@
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
+import anyio
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 import app.models  # noqa: F401  모든 모델 등록 (relationship 문자열 참조 해석)
 from app.api.v1.router import api_router
 from app.core.config import settings
+from app.ocr import get_ocr_engine
 from app.web import mount_frontend
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     settings.storage_path.mkdir(parents=True, exist_ok=True)
+    if settings.serve_frontend and settings.ocr_engine == "paddle":
+        # 공용 서버: 첫 업로드가 느리지 않게 켤 때 OCR 모델을 미리 불러온다 (실패해도 서버는 뜸 → 직접 입력)
+        # 개발 모드는 코드 저장할 때마다 재시작되므로 미리 불러오지 않음 (첫 업로드 때 불러옴)
+        await anyio.to_thread.run_sync(get_ocr_engine)
     yield
 
 

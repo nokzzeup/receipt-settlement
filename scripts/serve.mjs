@@ -1,7 +1,7 @@
 // 공용 서버 모드: 이 PC(노트북)를 팀 서버로 — server-windows.bat / server-mac.command / npm run serve
 //
 // 1) 이미 켜져 있으면 접속 주소만 다시 안내
-// 2) 포트 확인 → 처음이거나 패키지가 바뀌었으면(git pull 등) setup부터
+// 2) 포트 확인 → 처음이거나 패키지가 바뀌었으면(git pull 등) setup부터 (OCR_ENGINE=paddle 이면 OCR 설치도)
 // 3) 화면 빌드(frontend/dist) → 4) 운영 DB 자동 백업 → DB 구조 업데이트
 // 5) 0.0.0.0:포트로 실행 (화면 + API를 포트 하나로) → 같은 와이파이의 다른 PC·폰이 접속할 주소 안내
 // 6) 외부 접속 터널(Cloudflare Quick Tunnel) → 다른 와이파이·LTE에서도 들어올 https 주소 안내 (tunnel.mjs)
@@ -21,6 +21,7 @@ import {
   SERVER_PORTS,
   VENV_PYTHON,
   ensurePortsFree,
+  isOcrSetupNeeded,
   isServerRunning,
   isSetupUpToDate,
   lanAddresses,
@@ -78,6 +79,23 @@ function printLocalAddresses({ elsewhere = false } = {}) {
   }
   console.log('    - 같은 와이파이에서 안 열리면: Windows 방화벽 "허용", 학교 와이파이면 핫스팟으로')
   console.log(`    - 운영 데이터: ${SERVER_DATA_DIR}  (켤 때마다 DB 자동 백업 → server-data/backups)`)
+}
+
+/** 인식(OCR) 상태 안내 — 서버 /api/v1/health 의 ocr 값 */
+async function printOcrStatus() {
+  let ocr = null
+  try {
+    const response = await fetch(`${LOCAL_URL}/api/v1/health`, { signal: AbortSignal.timeout(3000) })
+    ocr = (await response.json()).ocr
+  } catch {
+    return
+  }
+  if (ocr === 'paddle') console.log('    - 인식(OCR): 실제 OCR(PaddleOCR) 사용 중 — 한 장에 몇 초 걸려요')
+  else if (ocr === 'mock') console.log('    - 인식(OCR): 가짜(Mock, 고정 샘플) — 실제 OCR을 켜려면 서버를 끄고 npm run setup:ocr')
+  else if (ocr === 'unavailable') {
+    console.log('\n[주의] 실제 OCR을 켜지 못했어요 (위 로그의 Traceback 확인). 업로드는 되고, 내용은 직접 입력하게 돼요.')
+    console.log('       → 서버를 끄고 npm run setup:ocr 를 다시 실행해 보세요.\n')
+  }
 }
 
 function printPublicAddress(url) {
@@ -148,6 +166,15 @@ if (!isSetupUpToDate()) {
   )
 }
 
+if (isOcrSetupNeeded()) {
+  step(
+    '실제 OCR(OCR_ENGINE=paddle)을 쓰도록 돼 있어서 OCR 설치부터 합니다. 몇 분 걸려요.',
+    process.execPath,
+    [path.join(ROOT, 'scripts', 'setup-ocr.mjs')],
+    { cwd: ROOT },
+  )
+}
+
 const vite = path.join(FRONTEND, 'node_modules', 'vite', 'bin', 'vite.js')
 step('[1/3] 화면 빌드 (frontend/dist)', process.execPath, [vite, 'build', '--logLevel', 'warn'], { cwd: FRONTEND })
 
@@ -195,6 +222,7 @@ if (!ready) {
   console.log('\n[주의] 2분이 지나도 서버가 응답하지 않아요. 위 로그에 에러가 있으면 복사해서 보내주세요.\n')
 } else {
   printLocalAddresses()
+  await printOcrStatus()
   openBrowser(LOCAL_URL)
   if (tunnelEnabled()) {
     tunnelChild = await startTunnel()

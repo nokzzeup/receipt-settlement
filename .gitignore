@@ -40,6 +40,8 @@ server-data/
 # 데이터셋 원본 이미지 — 카드번호·승인번호 등이 찍혀 있으므로 레포 대신 팀 드라이브로 공유
 dataset/images/*
 !dataset/images/.gitkeep
+# 정확도 측정(npm run ocr:eval)이 저장해 두는 OCR 결과 — 영수증 내용이 들어 있어서 커밋 안 함
+dataset/ocr-cache/
 
 # OS / 에디터
 .DS_Store

@@ -5,9 +5,10 @@ dataset/ 정답 라벨로 정확도를 재면서 규칙을 보강한다. 못 읽
 
 처리 순서
 1. 박스를 행으로 묶는다 (rows.py)
-2. 가게명: 위쪽 몇 행 중 사업자·주소·날짜 같은 줄이 아닌 첫 행
+2. 가게명: '상호:·가맹점명:' 같은 표시가 있으면 그 값, 없으면 위쪽 몇 행 중 사업자·주소·날짜 같은 줄이 아닌 첫 행
 3. 결제일시: 날짜 패턴이 있는 첫 행 (+ 같은 행의 시각). 한국시간(KST)으로 만든다
-4. 합계: '합계/총액/결제금액…' 행의 마지막 숫자 (없으면 '카드결제/결제…' 행)
+4. 합계: 실제 낸 돈을 가리키는 말부터 찾는다 — 결제금액·받을금액 > 합계·총액 > 카드결제·현금
+   (할인이 있는 영수증은 '합계'가 할인 전 금액이고 '결제금액'이 실제 금액인 경우가 많음)
 5. 품목: 표 머리글(상품명·수량·단가·금액) 다음 행부터 합계 행 전까지.
    머리글이 있으면 숫자를 머리글 열 위치로 수량/단가/금액에 배정하고, 없으면 숫자 개수로 추정한다.
 """
@@ -21,21 +22,34 @@ from app.parsing.rows import Row, Token, group_rows
 from app.parsing.schemas import ReceiptFields, ReceiptItem
 
 _NUMBER = re.compile(r"-?\d{1,3}(?:,\d{3})+|-?\d+")
-_DATE = re.compile(r"(?<!\d)(20\d{2}|\d{2})\s*[-./년]\s*(\d{1,2})\s*[-./월]\s*(\d{1,2})(?!\d)")
+# 날짜. OCR이 날짜와 시각 사이 공백을 빼먹은 경우("2026.09.3018:42")도 일(日)을 두 자리로 끊어서 읽는다
+_DATE = re.compile(
+    r"(?<!\d)(20\d{2}|\d{2})\s*[-./년]\s*(\d{1,2})\s*[-./월]\s*(\d{2}(?=\d{1,2}\s*:\s*\d{2})|\d{1,2}(?!\d))"
+)
 _TIME = re.compile(r"(?<!\d)([01]?\d|2[0-3])\s*:\s*([0-5]\d)(?:\s*:\s*([0-5]\d))?(?!\d)")
 _LEADING_INDEX = re.compile(r"^\d{1,3}[.)]?\s+")
 _CODE_ONLY = re.compile(r"^[\d*\-\s]+$")
 
-_TOTAL_STRONG = ("합계", "총액", "총금액", "결제금액", "받을금액", "청구금액", "판매금액")
-_TOTAL_WEAK = ("카드결제", "신용카드", "결제", "현금")
+# 합계를 가리키는 말. 앞 묶음일수록 '실제로 낸 돈'에 가깝다 → 앞 묶음에서 먼저 찾는다
+_TOTAL_TIERS: tuple[tuple[str, ...], ...] = (
+    ("결제금액", "받을금액", "청구금액", "실결제", "결제합계"),
+    ("합계", "총액", "총금액", "판매금액", "총구매액", "구매금액"),
+    ("카드결제", "신용카드", "결제", "현금"),
+)
 _NOT_TOTAL = ("과세", "면세", "부가", "공급가", "할인", "봉사료", "거스름")
 # 품목 구간 안에 있어도 품목이 아닌 줄. 할인 줄은 여기 넣지 않는다 → 음수 금액 품목으로 남겨서 품목 합계 = 합계가 되게
-_NOT_ITEM = _TOTAL_STRONG + _TOTAL_WEAK + (
-    "과세", "면세", "부가", "공급가", "봉사료", "거스름", "승인", "카드번호", "가맹점", "사업자", "포인트", "적립"
+_NOT_ITEM = tuple(word for tier in _TOTAL_TIERS for word in tier) + (
+    "과세", "면세", "부가", "공급가", "봉사료", "거스름", "받은금액", "잔액", "승인", "카드번호", "일시불", "할부",
+    "가맹점", "사업자", "포인트", "적립", "회원", "멤버십", "현금영수증",
 )
 _DISCOUNT = ("할인", "에누리", "쿠폰")
 _NOT_STORE = ("영수증", "매출전표", "고객용", "가맹점용", "재발행", "사업자", "대표", "TEL", "전화", "주소", "[")
 _STORE_SEARCH_ROWS = 5
+# "상호: 행복마트" / "가맹점명 행복마트" 처럼 가게 이름을 직접 표시한 줄
+# (표시 뒤에 ':'나 공백이 있어야 함 → "상호저축은행" 같은 이름을 잘못 자르지 않게)
+_STORE_LABEL = re.compile(
+    r"^\s*(?:상\s*호\s*명?|가\s*맹\s*점\s*명|매\s*장\s*명|점\s*포\s*명|상\s*점\s*명)(?:\s*[:：]\s*|\s+)(?P<name>.+)$"
+)
 
 # 머리글 단어 → 열 이름
 _HEADER_WORDS = {
@@ -76,7 +90,7 @@ def _find_paid_at(rows: list[Row]) -> datetime | None:
             year, month, day = (int(g) for g in match.groups())
             if year < 100:
                 year += 2000
-            time_match = _TIME.search(text, match.end())
+            time_match = _TIME.search(text[match.end() :])  # 잘라서 찾아야 붙어 있는 시각도 잡힘
             hour, minute, second = (0, 0, 0)
             if time_match:
                 hour, minute = int(time_match.group(1)), int(time_match.group(2))
@@ -103,7 +117,7 @@ def _is_total_row(row: Row, keywords: tuple[str, ...]) -> bool:
 
 def _find_total(rows: list[Row]) -> tuple[int | None, int | None]:
     """(합계 금액, 합계 행 번호)"""
-    for keywords in (_TOTAL_STRONG, _TOTAL_WEAK):
+    for keywords in _TOTAL_TIERS:
         for index, row in enumerate(rows):
             if _is_total_row(row, keywords):
                 numbers = _row_numbers(row)
@@ -116,6 +130,9 @@ def _find_total(rows: list[Row]) -> tuple[int | None, int | None]:
 
 
 def _find_store_name(rows: list[Row]) -> str | None:
+    for row in rows:
+        if (match := _STORE_LABEL.match(row.text)) and sum(ch.isalpha() for ch in match["name"]) >= 2:
+            return match["name"].strip()[:100]
     for row in rows[:_STORE_SEARCH_ROWS]:
         text = row.text.strip()
         if any(word in text for word in _NOT_STORE) or _DATE.search(text):

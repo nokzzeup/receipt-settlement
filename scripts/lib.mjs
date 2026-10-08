@@ -87,6 +87,33 @@ export function isSetupUpToDate() {
   }
 }
 
+// 실제 OCR(PaddleOCR) 설치 상태 — npm run setup:ocr 가 남기는 지문. requirements-ocr.txt 가 바뀌면 다시 설치
+const OCR_REQUIREMENTS = path.join(BACKEND, 'requirements-ocr.txt')
+const OCR_STAMP_FILE = path.join(VENV_DIR, 'ocr-stamp.txt')
+
+function currentOcrStamp() {
+  return createHash('sha256').update(readFileSync(OCR_REQUIREMENTS)).digest('hex')
+}
+
+export function writeOcrStamp() {
+  writeFileSync(OCR_STAMP_FILE, currentOcrStamp())
+}
+
+/** .env 의 OCR_ENGINE (mock | paddle) */
+export function ocrEngineSetting() {
+  return (readEnvValue('OCR_ENGINE') ?? 'mock').trim().toLowerCase()
+}
+
+/** 실제 OCR을 쓰기로 했는데(OCR_ENGINE=paddle) 설치가 안 됐거나 버전 목록이 바뀌었는지 */
+export function isOcrSetupNeeded() {
+  if (ocrEngineSetting() !== 'paddle') return false
+  try {
+    return readFileSync(OCR_STAMP_FILE, 'utf8').trim() !== currentOcrStamp()
+  } catch {
+    return true
+  }
+}
+
 export function requireVenv() {
   if (!existsSync(VENV_PYTHON)) fail('백엔드 환경이 아직 없습니다. 먼저 `npm run setup` 을 실행하세요.')
 }

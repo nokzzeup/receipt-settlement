@@ -1,0 +1,25 @@
+{
+  "store_name": "CU 신촌연세점",
+  "paid_at": "2026-10-01T09:05:00+09:00",
+  "total_amount": 6250,
+  "items": [
+    {
+      "name": "삼각김밥 참치마요",
+      "quantity": 1,
+      "unit_price": null,
+      "amount": 1500
+    },
+    {
+      "name": "바나나우유",
+      "quantity": 2,
+      "unit_price": null,
+      "amount": 3400
+    },
+    {
+      "name": "컵라면 신라면",
+      "quantity": 1,
+      "unit_price": null,
+      "amount": 1350
+    }
+  ]
+}
