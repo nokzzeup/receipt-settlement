@@ -56,7 +56,7 @@ class Expense(TimestampMixin, Base):
         back_populates="expense", cascade="all, delete-orphan", order_by="ExpenseItem.id"
     )
     approval_logs: Mapped[list["ApprovalLog"]] = relationship(
-        back_populates="expense", cascade="all, delete-orphan", order_by="ApprovalLog.created_at"
+        back_populates="expense", cascade="all, delete-orphan", order_by="ApprovalLog.id"
     )
 
 

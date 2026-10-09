@@ -31,3 +31,10 @@ OptionalText200 = Annotated[
     BeforeValidator(_blank_to_none),
 ]
 Text200 = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
+
+# 사유·메모 (반려 사유, 승인 메모)
+Text500 = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=500)]
+OptionalText500 = Annotated[
+    Annotated[str, StringConstraints(strip_whitespace=True, max_length=500)] | None,
+    BeforeValidator(_blank_to_none),
+]

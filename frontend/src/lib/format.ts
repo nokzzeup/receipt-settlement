@@ -92,3 +92,25 @@ export function parseInteger(value: string): number | null | undefined {
   const number = Number(text)
   return Number.isSafeInteger(number) ? number : undefined
 }
+
+/** 'YYYY-MM-DD' 두 개 → '2026. 9. 1 ~ 12. 31' (해가 같으면 끝의 해는 생략) */
+export function formatPeriod(start: string, end: string): string {
+  const [sy, sm, sd] = start.split('-').map(Number)
+  const [ey, em, ed] = end.split('-').map(Number)
+  return `${sy}. ${sm}. ${sd} ~ ${sy === ey ? '' : `${ey}. `}${em}. ${ed}`
+}
+
+/** 한국 날짜로 오늘 'YYYY-MM-DD' */
+export function seoulToday(now: Date = new Date()): string {
+  return seoulDayKey(now)
+}
+
+/** 지금이 속한 학기 (1학기 3~8월, 2학기 9월~이듬해 2월 — 방학 포함). 예산 기간 기본값 */
+export function currentSemester(now: Date = new Date()): { start: string; end: string } {
+  const [year, month] = seoulToday(now).split('-').map(Number)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const lastDayOfFeb = (y: number) => new Date(Date.UTC(y, 2, 0)).getUTCDate()
+  if (month >= 3 && month <= 8) return { start: `${year}-03-01`, end: `${year}-08-31` }
+  const startYear = month >= 9 ? year : year - 1
+  return { start: `${startYear}-09-01`, end: `${startYear + 1}-02-${pad(lastDayOfFeb(startYear + 1))}` }
+}

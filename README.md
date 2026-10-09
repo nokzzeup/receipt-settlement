@@ -221,7 +221,7 @@ npm run ocr:eval -- --refresh   # 전처리·엔진 설정을 바꿨을 때 (OCR
 │   │   ├── ocr/              엔진 인터페이스, Mock·PaddleOCR 엔진, 전처리, 자가 진단 (김도현)
 │   │   ├── parsing/          ReceiptFields 스키마 + parse() (규칙 기반), 행 묶기    (이성민)
 │   │   ├── classify/         품목 → 계정과목 자동 분류·학습 (4단계), 기본 계정과목  (이성민)
-│   │   └── settlement/       정산 엔진 (5단계)                                     (이성민)
+│   │   └── settlement/       정산 엔진: 환급 집계·예산 잔액 (5단계)                (이성민)
 │   └── tests/
 ├── frontend/                 React PWA                                              (신율겸)
 │   └── src/
@@ -239,7 +239,7 @@ npm run ocr:eval -- --refresh   # 전처리·엔진 설정을 바꿨을 때 (OCR
 ### 이성민 — 백엔드 API · 파싱 · 분류 · 정산
 - `backend/app/api/v1/` — 1·2단계 완료. 조직 안 API는 `api/deps.py`의 `CurrentMembership`(멤버 아니면 404) / `require_roles(...)`(역할 아니면 403)를 반드시 거친다
 - `backend/app/parsing/parser.py` — 실제 PaddleOCR 출력으로 보강함. 실제 영수증 데이터가 모이면 `npm run ocr:eval -- -v`로 틀린 곳을 보고 규칙 수정 → 점수가 오를 때만 반영. 고친 사례는 `tests/fixtures/paddle/`처럼 샘플로 남겨 회귀 테스트
-- `classify/` — 4단계 완료: 업로드 때 품목 자동 분류(`receipts/intake.py`), 제출 때 고친 품목 학습. 기본 키워드는 `classify/defaults.py` — 실제 영수증에서 미분류로 남는 품목을 보고 추가 (`tests/test_classify.py`에 사례도 같이). `settlement/` — 5단계, pytest 필수
+- `classify/` — 4단계 완료: 업로드 때 품목 자동 분류(`receipts/intake.py`), 제출 때 고친 품목 학습. 기본 키워드는 `classify/defaults.py` — 실제 영수증에서 미분류로 남는 품목을 보고 추가 (`tests/test_classify.py`에 사례도 같이). `settlement/` — 5단계 완료: 계산은 `settlement/engine.py`(순수 함수, `tests/test_settlement_engine.py`), API는 `api/v1/settlement.py`·`expenses.py`(승인·반려·환급). 규칙을 바꾸면 테스트부터
 
 ### 김도현 — DB · OCR · 데이터셋
 - **먼저 `npm run setup:ocr`** (위 "실제 OCR"). 엔진은 `backend/app/ocr/paddle.py`(설정 근거 주석), 전처리는 `preprocess.py`
@@ -250,7 +250,7 @@ npm run ocr:eval -- --refresh   # 전처리·엔진 설정을 바꿨을 때 (OCR
 - `backend/app/models/` — 모델 수정하면 `npm run db:revision "설명"` → 생성 파일 검토 → `npm run db:check`
 
 ### 신율겸 — 프론트 PWA
-- 동작하는 화면: 로그인, 조직 선택, 홈(`HomePage`), 지출 목록(상태별 거르기), 영수증 찍기(→ 인식 중 스캔 화면), 지출 확인·수정(`ExpenseDetailPage` + `components/ExpenseForm.tsx`, 계정 고르기 시트·제출 완료 화면), 설정(초대 코드·계정과목·구성원 역할). 남은 화면: 정산(5단계, 지금은 안내 화면)
+- 동작하는 화면: 로그인, 조직 선택, 홈(`HomePage`), 지출 목록(상태별 거르기), 영수증 찍기(→ 인식 중 스캔 화면), 지출 확인·수정(`ExpenseDetailPage` + `components/ExpenseForm.tsx`, 계정 고르기 시트·제출 완료 화면), 설정(초대 코드·계정과목·구성원 역할). 정산(돌려줄 돈·보냈어요·예산·예산 기간 — `SettlementPage`), 승인·반려·되돌리기 버튼(`components/ExpenseActions.tsx`)과 처리 기록(`HistoryList`)
 - 디자인 기준: `docs/DECISIONS.md`의 "화면 디자인". 색·모양·모션은 `frontend/src/index.css` 맨 위 변수(`:root`)만 바꾸면 전체 반영
 - 공통 부품: `components/` — `Icon`(선 아이콘), `BottomSheet`, `SegmentedTabs`, `ExpenseRow`, `CategoryTile`, `NumberInput`(쉼표 표시), `TopBar` / 알림·확인 창: `useFeedback()`(`feedback/`) / 순서대로 떠오르기: `className="anim-rise" style={stagger(n)}`
 - `frontend/vite.config.ts` — PWA 앱 이름·색, `frontend/public/` 아이콘 교체

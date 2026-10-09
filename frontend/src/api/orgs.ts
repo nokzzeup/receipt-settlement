@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, unwrap } from './client'
-import type { MembershipRole, OrgDetail } from './types'
+import { settlementKeys } from './keys'
+import type { MembershipRole, OrgDetail, OrgUpdate } from './types'
 
 export const orgKeys = {
   all: ['orgs'] as const,
@@ -79,5 +80,19 @@ export function useUpdateRole(orgId: number) {
       ),
     // 내 역할이 바뀌었을 수도 있으니 조직 정보·목록도 새로
     onSuccess: () => queryClient.invalidateQueries({ queryKey: orgKeys.all }),
+  })
+}
+
+/** 조직 이름·예산 기간 (총무) */
+export function useUpdateOrg(orgId: number) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (body: OrgUpdate) =>
+      unwrap(await api.PATCH('/api/v1/orgs/{org_id}', { params: { path: { org_id: orgId } }, body })),
+    onSuccess: (org) => {
+      queryClient.setQueryData(orgKeys.detail(orgId), org)
+      queryClient.invalidateQueries({ queryKey: orgKeys.all, exact: true })
+      queryClient.invalidateQueries({ queryKey: settlementKeys.summary(orgId) }) // 기간이 바뀌면 집행액도 바뀜
+    },
   })
 }

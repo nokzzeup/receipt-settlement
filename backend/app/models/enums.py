@@ -33,7 +33,10 @@ class CategorySource(StrEnum):
 
 
 class ApprovalAction(StrEnum):
-    SUBMIT = "SUBMIT"
+    SUBMIT = "SUBMIT"  # 제출 (반려 뒤 다시 제출도)
+    WITHDRAW = "WITHDRAW"  # 제출 취소 (승인 전, 작성 중으로 되돌림)
     APPROVE = "APPROVE"
-    REJECT = "REJECT"
+    UNAPPROVE = "UNAPPROVE"  # 승인 취소 (환급 전, 승인 대기로 되돌림)
+    REJECT = "REJECT"  # 반려 (comment = 사유)
     REIMBURSE = "REIMBURSE"  # 환급 완료 처리
+    UNREIMBURSE = "UNREIMBURSE"  # 환급 완료 취소

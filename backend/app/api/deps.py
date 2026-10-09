@@ -3,6 +3,7 @@
     def handler(db: DbSession, user: CurrentUser): ...                       # 로그인만 필요
     def handler(org_id: int, me: CurrentMembership): ...                     # 그 조직 구성원만
     def handler(org_id: int, me: TreasurerMembership): ...                   # 그 조직 총무만
+    def handler(org_id: int, me: ReviewerMembership): ...                    # 총무·승인자만
     def handler(org_id: int, me: Annotated[Membership, Depends(require_roles(A, B))]): ...
 
 권한은 항상 "조직 멤버십 + 역할"로 서버에서 확인한다. 경로에 {org_id}가 있는 API는
@@ -79,3 +80,7 @@ def require_roles(*roles: MembershipRole) -> Callable[[Membership], Membership]:
 
 
 TreasurerMembership = Annotated[Membership, Depends(require_roles(MembershipRole.TREASURER))]
+# 승인·반려할 수 있는 사람 (총무도 승인할 수 있음 — 승인자를 따로 안 둔 작은 조직)
+ReviewerMembership = Annotated[
+    Membership, Depends(require_roles(MembershipRole.TREASURER, MembershipRole.APPROVER))
+]

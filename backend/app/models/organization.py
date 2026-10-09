@@ -1,6 +1,7 @@
+from datetime import date
 from typing import TYPE_CHECKING
 
-from sqlalchemy import ForeignKey, String, UniqueConstraint
+from sqlalchemy import CheckConstraint, ForeignKey, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -14,12 +15,24 @@ if TYPE_CHECKING:
 
 class Organization(TimestampMixin, Base):
     __tablename__ = "organizations"
+    __table_args__ = (
+        CheckConstraint(
+            "(budget_period_start IS NULL) = (budget_period_end IS NULL)", name="budget_period_together"
+        ),
+        CheckConstraint(
+            "budget_period_start IS NULL OR budget_period_start <= budget_period_end", name="budget_period_order"
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(100))
     # 재발급 = 값 교체 (이전 코드는 즉시 무효)
     invite_code: Mapped[str] = mapped_column(String(16), unique=True)
     created_by_user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    # 지금 예산 기간 (한국 날짜, 양 끝 포함). 계정별 집행액·잔액은 결제일이 이 안인 지출만 센다.
+    # 둘 다 NULL = 기간 없음(전체 누적). 새 학기엔 총무가 바꾼다. 돌려줄 돈은 기간과 상관없이 전부
+    budget_period_start: Mapped[date | None]
+    budget_period_end: Mapped[date | None]
 
     created_by: Mapped["User"] = relationship()
     memberships: Mapped[list["Membership"]] = relationship(back_populates="organization")

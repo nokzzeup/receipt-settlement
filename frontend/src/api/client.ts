@@ -54,6 +54,9 @@ export function errorMessage(error: unknown): string {
   if (error instanceof ApiError) {
     const detail = (error.body as { detail?: unknown } | undefined)?.detail
     if (typeof detail === 'string') return detail // 서버가 보낸 한국어 메시지
+    // 입력값 검사에서 서버가 직접 쓴 문장 (예: 예산 기간 순서) → 그 문장만
+    const first = Array.isArray(detail) ? (detail[0] as { msg?: unknown } | undefined)?.msg : undefined
+    if (typeof first === 'string' && first.startsWith('Value error, ')) return first.slice('Value error, '.length)
     if (error.status === 422) return '입력한 값을 다시 확인하세요.'
     return `요청을 처리하지 못했습니다. (HTTP ${error.status})`
   }

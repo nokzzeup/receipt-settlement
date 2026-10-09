@@ -119,3 +119,51 @@ def upload_receipt(
     return client.post(
         f"{ORGS}/{org_id}/receipts", files={"image": (filename, data, "image/jpeg")}, headers=headers
     )
+
+
+# ---------- 총무·승인자·구성원 2명이 있는 조직 (지출·결재 테스트 공용) ----------
+
+
+@pytest.fixture
+def team(client: TestClient) -> dict:
+    """총무 / 승인자 / 구성원 2명 + 조직"""
+    owner = signup(client, "owner@example.com", "총무")
+    approver = signup(client, "approver@example.com", "승인자")
+    alice = signup(client, "alice@example.com", "앨리스")
+    bob = signup(client, "bob@example.com", "밥")
+    org = create_org(client, owner)
+    for headers in (approver, alice, bob):
+        join_org(client, headers, org["invite_code"])
+    members = {m["name"]: m for m in client.get(f"{ORGS}/{org['id']}/members", headers=owner).json()}
+    client.patch(
+        f"{ORGS}/{org['id']}/members/{members['승인자']['membership_id']}", json={"role": "APPROVER"}, headers=owner
+    )
+    categories = client.get(f"{ORGS}/{org['id']}/categories", headers=owner).json()
+    return {
+        "org_id": org["id"],
+        "owner": owner,
+        "approver": approver,
+        "alice": alice,
+        "bob": bob,
+        "members": {name: m["membership_id"] for name, m in members.items()},
+        "category_ids": [c["id"] for c in categories],
+    }
+
+
+def url(team: dict, expense_id: int | None = None, suffix: str = "") -> str:
+    base = f"{ORGS}/{team['org_id']}/expenses"
+    return base if expense_id is None else f"{base}/{expense_id}{suffix}"
+
+
+def valid_body(team: dict, payer: str = "앨리스") -> dict:
+    snack, office = team["category_ids"][1], team["category_ids"][2]
+    return {
+        "store_name": "행복마트 테스트점",
+        "paid_at": "2026-09-28T14:32:00+09:00",
+        "total_amount": 25400,
+        "payer_membership_id": team["members"][payer],
+        "items": [
+            {"name": "생수 2L", "quantity": 2, "unit_price": 1200, "amount": 2400, "category_id": snack},
+            {"name": "A4용지", "quantity": 1, "unit_price": 6500, "amount": 6500, "category_id": office},
+        ],
+    }

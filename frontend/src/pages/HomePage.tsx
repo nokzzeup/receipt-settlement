@@ -5,7 +5,7 @@ import { useCategories } from '../api/categories'
 import { errorMessage } from '../api/client'
 import { useExpenses } from '../api/expenses'
 import { useMembers, useOrg } from '../api/orgs'
-import type { ExpenseSummary } from '../api/types'
+import { useSettlement } from '../api/settlement'
 import { ExpenseRow } from '../components/ExpenseRow'
 import { Icon, type IconName } from '../components/Icon'
 import { RoleBadge } from '../components/RoleBadge'
@@ -17,12 +17,10 @@ import { stagger } from '../lib/motion'
 
 
 type Task = { key: string; to: string; icon: IconName; tone: CSSProperties; title: string; sub: string }
-const sum = (list: ExpenseSummary[]) => list.reduce((total, e) => total + e.amount, 0)
 
 /**
  * 조직 홈: 내가 돌려받을 돈 · 바로가기 · 할 일 · 최근 지출.
- * 지금은 목록 API로 받은 지출을 화면에서 더해서 보여준다 (표시용).
- * 5단계(승인·환급)에서 서버의 정산 엔진이 계산한 값으로 바꾼다.
+ * 돌려받을 돈·승인 대기·보낼 돈은 서버 정산 엔진 값 (GET /settlement), 작성 중·반려는 지출 목록에서.
  */
 export function HomePage() {
   const orgId = useOrgId()
@@ -31,19 +29,22 @@ export function HomePage() {
   const members = useMembers(orgId)
   const expenses = useExpenses(orgId)
   const categories = useCategories(orgId)
+  const settlement = useSettlement(orgId)
 
   const myMembershipId = members.data?.find((m) => m.user_id === me.data?.id)?.membership_id
   const list = expenses.data ?? []
   const mine = myMembershipId === undefined ? [] : list.filter((e) => e.payer.membership_id === myMembershipId)
-  const waiting = mine.filter((e) => e.status === 'SUBMITTED')
-  const approved = mine.filter((e) => e.status === 'APPROVED' && e.reimbursed_at === null)
   const drafts = mine.filter((e) => e.status === 'DRAFT')
   const rejected = mine.filter((e) => e.status === 'REJECTED')
-  const isManager = org.data?.my_role === 'TREASURER' || org.data?.my_role === 'APPROVER'
-  const orgWaiting = list.filter((e) => e.status === 'SUBMITTED')
+  const role = org.data?.my_role
+  const isManager = role === 'TREASURER' || role === 'APPROVER'
+  const summary = settlement.data
+  const myShare = summary?.me
+  const toSend = summary?.scope === 'org' ? summary.payers.filter((p) => p.to_reimburse > 0) : []
 
-  const owed = useCountUp(sum(waiting) + sum(approved))
-  const loading = expenses.isPending || members.isPending || me.isPending
+  // 돌려받을 돈 = 승인됐고 아직 못 받은 돈 + 승인 대기 (대기는 따로 표시)
+  const owed = useCountUp((myShare?.to_reimburse ?? 0) + (myShare?.awaiting_approval ?? 0))
+  const loading = expenses.isPending || members.isPending || me.isPending || settlement.isPending
 
   const tasks: Task[] = [
     drafts.length > 0 && {
@@ -63,15 +64,25 @@ export function HomePage() {
       sub: `${rejected[0].store_name ?? '가게 이름 없음'} · ${formatWon(rejected[0].amount)}`,
     },
     isManager &&
-      orgWaiting.length > 0 && {
+      summary &&
+      summary.awaiting_count > 0 && {
         key: 'org-waiting',
         to: `/orgs/${orgId}/expenses?filter=SUBMITTED`,
         icon: 'checkCircle',
         tone: { '--tile-bg': 'var(--warn-weak)', '--tile-fg': 'var(--warn)' } as CSSProperties,
-        title: `승인 기다리는 지출 ${orgWaiting.length}건`,
-        sub: `모두 ${formatWon(sum(orgWaiting))}`,
+        title: `승인 기다리는 지출 ${summary.awaiting_count}건`,
+        sub: `모두 ${formatWon(summary.awaiting_approval)}`,
       },
-  ].filter((task): task is Task => task !== false)
+    role === 'TREASURER' &&
+      toSend.length > 0 && {
+        key: 'to-send',
+        to: `/orgs/${orgId}/settlement`,
+        icon: 'send',
+        tone: { '--tile-bg': 'var(--primary-weak)', '--tile-fg': 'var(--primary)' } as CSSProperties,
+        title: `${toSend.length}명에게 돌려줄 돈`,
+        sub: `모두 ${formatWon(toSend.reduce((total, p) => total + p.to_reimburse, 0))} · 보내고 '보냈어요'로 표시`,
+      },
+  ].filter((task): task is Task => task !== false && task !== undefined)
 
   return (
     <>
@@ -94,12 +105,16 @@ export function HomePage() {
           <div className="pill-row" style={{ marginTop: 14 }}>
             {loading ? (
               <span className="skeleton" style={{ width: 140, height: 28 }} />
-            ) : waiting.length + approved.length + drafts.length === 0 ? (
+            ) : (myShare?.awaiting_count ?? 0) + (myShare?.expenses.length ?? 0) + drafts.length === 0 ? (
               <span className="caption">영수증을 제출하면 여기에 모여요</span>
             ) : (
               <>
-                {waiting.length > 0 && <span className="pill pill--lg pill--warn">승인 대기 {waiting.length}건</span>}
-                {approved.length > 0 && <span className="pill pill--lg pill--primary">승인됨 {approved.length}건</span>}
+                {myShare && myShare.awaiting_count > 0 && (
+                  <span className="pill pill--lg pill--warn">승인 대기 {formatWon(myShare.awaiting_approval)}</span>
+                )}
+                {myShare && myShare.expenses.length > 0 && (
+                  <span className="pill pill--lg pill--primary">받을 돈 {formatWon(myShare.to_reimburse)}</span>
+                )}
                 {drafts.length > 0 && <span className="pill pill--lg">작성 중 {drafts.length}건</span>}
               </>
             )}

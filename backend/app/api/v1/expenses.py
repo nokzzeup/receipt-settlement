@@ -1,13 +1,18 @@
-"""지출: 영수증 업로드(→ 작성 중 지출), 목록, 상세, 저장, 삭제, 제출, 원본 이미지.
+"""지출: 영수증 업로드(→ 작성 중 지출), 목록, 상세, 저장, 삭제, 원본 이미지 + 제출·승인·반려·환급.
 
-흐름: 영수증 업로드 → OCR·파싱 결과로 작성 중(DRAFT) 지출이 바로 생김 → 확인·수정 화면에서 저장(PUT)
-      → 제출(SUBMITTED) → (5단계) 승인/반려 → 환급
+흐름: 영수증 업로드 → OCR·파싱·자동 분류 결과로 작성 중(DRAFT) 지출이 바로 생김 → 확인·수정(PUT)
+      → 제출(SUBMITTED) → 승인(APPROVED) → 환급 완료(reimbursed_at)
+                         ↘ 반려(REJECTED) → 고쳐서 다시 제출
+      되돌리기: 제출 취소(SUBMITTED → DRAFT), 승인 취소(APPROVED → SUBMITTED, 환급 전만), 환급 완료 취소
 
 권한
 - 업로드: 그 조직 구성원 누구나. 결제자(환급받을 사람) 기본값은 올린 사람
-- 보기: 총무·승인자는 전부, 구성원은 내가 올렸거나 내가 결제자인 지출만 (아니면 404)
-- 저장·삭제·제출: 작성 중일 때만, 올린 사람 또는 총무
+- 보기: 총무는 전부, 승인자는 남의 작성 중 지출만 빼고 전부, 구성원은 내가 올렸거나 내가 결제자인 지출만 (아니면 404)
+- 저장·삭제·제출: 작성 중·반려됨일 때, 올린 사람 또는 총무. 제출 취소도 같은 사람
+- 승인·반려·승인 취소: 총무·승인자 (자기 지출도 가능 — 작은 조직에서 막으면 승인할 사람이 없음. 기록은 남음)
+- 환급 완료·취소: 총무
 - 결제자·계정과목은 같은 조직 것만 허용 (DB가 못 막으므로 여기서 검증)
+- 상태를 바꾸는 일은 전부 결재 이력(ApprovalLog)에 남긴다
 """
 
 from datetime import UTC, datetime
@@ -18,7 +23,7 @@ from fastapi.responses import FileResponse
 from sqlalchemy import ColumnElement, func, or_, select
 from sqlalchemy.orm import aliased
 
-from app.api.deps import CurrentMembership, DbSession, OcrEngineDep
+from app.api.deps import CurrentMembership, DbSession, OcrEngineDep, ReviewerMembership, TreasurerMembership
 from app.classify import learn_from_items
 from app.models import (
     ApprovalAction,
@@ -30,6 +35,7 @@ from app.models import (
     ExpenseStatus,
     Membership,
     MembershipRole,
+    Organization,
     Receipt,
     User,
 )
@@ -39,35 +45,50 @@ from app.receipts import storage
 from app.receipts.images import MAX_UPLOAD_BYTES, MEDIA_TYPES, detect_image_type, is_heif
 from app.receipts.intake import create_draft_expense
 from app.schemas.expense import (
+    BudgetWarningOut,
     ExpenseDetail,
     ExpenseItemOut,
     ExpenseSummary,
     ExpenseUpdate,
+    HistoryEntryOut,
     PersonOut,
     ReceiptOut,
+    RejectRequest,
+    ReviewRequest,
 )
+from app.settlement import approval_warnings, budget_period, category_budgets, load_categories, load_expense_records
 
 router = APIRouter(prefix="/orgs/{org_id}", tags=["expenses"])
 
-_SEE_ALL_ROLES = {MembershipRole.TREASURER, MembershipRole.APPROVER}
+_REVIEWER_ROLES = {MembershipRole.TREASURER, MembershipRole.APPROVER}
+# 고칠 수 있는 상태: 작성 중, 반려됨(고쳐서 다시 제출)
+_EDITABLE = {ExpenseStatus.DRAFT, ExpenseStatus.REJECTED}
 
 
 # ---------- 권한 ----------
 
 
-def _visible_condition(me: Membership) -> ColumnElement[bool] | None:
-    """목록 조회용 조건. None = 조직 지출 전부"""
-    if me.role in _SEE_ALL_ROLES:
-        return None
+def _mine_condition(me: Membership) -> ColumnElement[bool]:
     return or_(Expense.payer_membership_id == me.id, Receipt.uploader_membership_id == me.id)
 
 
+def _visible_condition(me: Membership) -> ColumnElement[bool] | None:
+    """목록 조회용 조건. None = 조직 지출 전부"""
+    if me.role == MembershipRole.TREASURER:
+        return None
+    if me.role == MembershipRole.APPROVER:
+        return or_(Expense.status != ExpenseStatus.DRAFT, _mine_condition(me))
+    return _mine_condition(me)
+
+
+def _is_mine(me: Membership, expense: Expense) -> bool:
+    return expense.payer_membership_id == me.id or expense.receipt.uploader_membership_id == me.id
+
+
 def _can_view(me: Membership, expense: Expense) -> bool:
-    return (
-        me.role in _SEE_ALL_ROLES
-        or expense.payer_membership_id == me.id
-        or expense.receipt.uploader_membership_id == me.id
-    )
+    if me.role == MembershipRole.TREASURER or _is_mine(me, expense):
+        return True
+    return me.role == MembershipRole.APPROVER and expense.status != ExpenseStatus.DRAFT
 
 
 def _is_owner_or_treasurer(me: Membership, expense: Expense) -> bool:
@@ -75,7 +96,11 @@ def _is_owner_or_treasurer(me: Membership, expense: Expense) -> bool:
 
 
 def _can_edit(me: Membership, expense: Expense) -> bool:
-    return expense.status == ExpenseStatus.DRAFT and _is_owner_or_treasurer(me, expense)
+    return expense.status in _EDITABLE and _is_owner_or_treasurer(me, expense)
+
+
+def _awaiting_reimbursement(expense: Expense) -> bool:
+    return expense.status == ExpenseStatus.APPROVED and expense.reimbursed_at is None
 
 
 def _get_visible(db: DbSession, org_id: int, expense_id: int, me: Membership) -> Expense:
@@ -89,9 +114,17 @@ def _get_editable(db: DbSession, org_id: int, expense_id: int, me: Membership, a
     expense = _get_visible(db, org_id, expense_id, me)
     if not _is_owner_or_treasurer(me, expense):
         raise HTTPException(status.HTTP_403_FORBIDDEN, f"영수증을 올린 사람이나 총무만 {action}할 수 있습니다.")
-    if expense.status != ExpenseStatus.DRAFT:
-        raise HTTPException(status.HTTP_409_CONFLICT, f"작성 중인 지출만 {action}할 수 있습니다.")
+    if expense.status not in _EDITABLE:
+        raise HTTPException(status.HTTP_409_CONFLICT, f"작성 중이거나 반려된 지출만 {action}할 수 있습니다.")
     return expense
+
+
+def _conflict(detail: str) -> HTTPException:
+    return HTTPException(status.HTTP_409_CONFLICT, detail)
+
+
+def _log(expense: Expense, me: Membership, action: ApprovalAction, comment: str | None = None) -> None:
+    expense.approval_logs.append(ApprovalLog(actor_membership_id=me.id, action=action, comment=comment))
 
 
 # ---------- 응답 만들기 ----------
@@ -114,18 +147,55 @@ def _receipt_out(receipt: Receipt) -> ReceiptOut:
     )
 
 
-def _detail(expense: Expense, me: Membership) -> ExpenseDetail:
+def _budget_warnings(db: DbSession, expense: Expense) -> list[BudgetWarningOut]:
+    """승인하면 예산을 넘는 계정과목 (정산 엔진 규칙 그대로)"""
+    org = db.get_one(Organization, expense.organization_id)
+    categories = load_categories(db, org.id)
+    records = load_expense_records(db, org.id)
+    target = next((r for r in records if r.id == expense.id), None)
+    if target is None:
+        return []
+    names = {c.id: c.name for c in categories}
+    return [
+        BudgetWarningOut(
+            category_id=w.category_id,
+            category_name=names[w.category_id],
+            budget=w.budget,
+            spent=w.spent,
+            this_amount=w.this_amount,
+            over_by=w.over_by,
+        )
+        for w in approval_warnings(target, category_budgets(categories), records, budget_period(org))
+    ]
+
+
+def _detail(db: DbSession, expense: Expense, me: Membership) -> ExpenseDetail:
+    is_reviewer = me.role in _REVIEWER_ROLES
+    is_treasurer = me.role == MembershipRole.TREASURER
+    submitted = expense.status == ExpenseStatus.SUBMITTED
+    can_review = submitted and is_reviewer
     return ExpenseDetail(
         id=expense.id,
         status=expense.status,
         reject_reason=expense.reject_reason,
         reimbursed_at=expense.reimbursed_at,
+        reimbursed_by=_person(expense.reimbursed_by) if expense.reimbursed_by else None,
         amount=sum(item.amount for item in expense.items),
         payer=_person(expense.payer),
         uploader=_person(expense.receipt.uploader),
         receipt=_receipt_out(expense.receipt),
         items=[ExpenseItemOut.model_validate(item) for item in expense.items],
+        history=[
+            HistoryEntryOut(action=log.action, actor=_person(log.actor), comment=log.comment, created_at=log.created_at)
+            for log in expense.approval_logs
+        ],
         can_edit=_can_edit(me, expense),
+        can_withdraw=submitted and _is_owner_or_treasurer(me, expense),
+        can_review=can_review,
+        can_unapprove=_awaiting_reimbursement(expense) and is_reviewer,
+        can_reimburse=_awaiting_reimbursement(expense) and is_treasurer,
+        can_unreimburse=expense.reimbursed_at is not None and is_treasurer,
+        budget_warnings=_budget_warnings(db, expense) if can_review else [],
         created_at=expense.created_at,
         updated_at=expense.updated_at,
     )
@@ -165,7 +235,7 @@ def upload_receipt(
             )
         raise HTTPException(status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, "JPG, PNG, WEBP 사진만 올릴 수 있습니다.")
     expense = create_draft_expense(db, me, data, image_type, engine)
-    return _detail(expense, me)
+    return _detail(db, expense, me)
 
 
 @router.get("/expenses")
@@ -233,7 +303,7 @@ def list_expenses(org_id: int, me: CurrentMembership, db: DbSession) -> list[Exp
 
 @router.get("/expenses/{expense_id}")
 def get_expense(org_id: int, expense_id: int, me: CurrentMembership, db: DbSession) -> ExpenseDetail:
-    return _detail(_get_visible(db, org_id, expense_id, me), me)
+    return _detail(db, _get_visible(db, org_id, expense_id, me), me)
 
 
 @router.put("/expenses/{expense_id}")
@@ -283,12 +353,12 @@ def update_expense(
     expense.payer_membership_id = payer.id
     expense.updated_at = datetime.now(UTC)  # 품목만 바뀌어도 수정 시각이 갱신되게
     db.commit()
-    return _detail(expense, me)
+    return _detail(db, expense, me)
 
 
 @router.delete("/expenses/{expense_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_expense(org_id: int, expense_id: int, me: CurrentMembership, db: DbSession) -> Response:
-    """작성 중 지출 삭제 (영수증 기록·원본 이미지도 같이)"""
+    """작성 중·반려된 지출 삭제 (영수증 기록·원본 이미지·결재 이력도 같이)"""
     expense = _get_editable(db, org_id, expense_id, me, "삭제")
     receipt = expense.receipt
     image_path = receipt.image_path
@@ -301,7 +371,7 @@ def delete_expense(org_id: int, expense_id: int, me: CurrentMembership, db: DbSe
 
 @router.post("/expenses/{expense_id}/submit")
 def submit_expense(org_id: int, expense_id: int, me: CurrentMembership, db: DbSession) -> ExpenseDetail:
-    """제출 → 승인 대기. 저장된 내용 기준으로 빠진 값이 있으면 422 (무엇이 빠졌는지 메시지로)"""
+    """제출(작성 중·반려됨 → 승인 대기). 저장된 내용 기준으로 빠진 값이 있으면 422 (무엇이 빠졌는지 메시지로)"""
     expense = _get_editable(db, org_id, expense_id, me, "제출")
     receipt = expense.receipt
     problems: list[str] = []
@@ -331,11 +401,99 @@ def submit_expense(org_id: int, expense_id: int, me: CurrentMembership, db: DbSe
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, " ".join(problems))
 
     expense.status = ExpenseStatus.SUBMITTED
-    expense.approval_logs.append(ApprovalLog(actor_membership_id=me.id, action=ApprovalAction.SUBMIT))
+    expense.reject_reason = None  # 반려 뒤 다시 제출: 사유는 결재 이력에 남아 있음
+    _log(expense, me, ApprovalAction.SUBMIT)
     # 사용자가 직접 고른 계정과목을 조직 규칙으로 저장 → 다음 영수증부터 자동 분류에 반영
     learn_from_items(db, org_id, expense.items)
     db.commit()
-    return _detail(expense, me)
+    return _detail(db, expense, me)
+
+
+@router.post("/expenses/{expense_id}/withdraw")
+def withdraw_expense(org_id: int, expense_id: int, me: CurrentMembership, db: DbSession) -> ExpenseDetail:
+    """제출 취소 (승인 대기 → 작성 중). 승인·반려되기 전에만, 올린 사람 또는 총무"""
+    expense = _get_visible(db, org_id, expense_id, me)
+    if not _is_owner_or_treasurer(me, expense):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "영수증을 올린 사람이나 총무만 제출을 취소할 수 있습니다.")
+    if expense.status != ExpenseStatus.SUBMITTED:
+        raise _conflict("승인 대기 중인 지출만 제출을 취소할 수 있습니다.")
+    expense.status = ExpenseStatus.DRAFT
+    _log(expense, me, ApprovalAction.WITHDRAW)
+    db.commit()
+    return _detail(db, expense, me)
+
+
+@router.post("/expenses/{expense_id}/approve")
+def approve_expense(
+    org_id: int, expense_id: int, body: ReviewRequest, me: ReviewerMembership, db: DbSession
+) -> ExpenseDetail:
+    """승인 (승인 대기 → 승인됨 = 환급 대상). 예산을 넘어도 승인은 된다 (경고는 상세의 budget_warnings)"""
+    expense = _get_visible(db, org_id, expense_id, me)
+    if expense.status != ExpenseStatus.SUBMITTED:
+        raise _conflict("승인 대기 중인 지출만 승인할 수 있습니다.")
+    expense.status = ExpenseStatus.APPROVED
+    _log(expense, me, ApprovalAction.APPROVE, body.comment)
+    db.commit()
+    return _detail(db, expense, me)
+
+
+@router.post("/expenses/{expense_id}/reject")
+def reject_expense(
+    org_id: int, expense_id: int, body: RejectRequest, me: ReviewerMembership, db: DbSession
+) -> ExpenseDetail:
+    """반려 (승인 대기 → 반려됨). 사유 필수 → 올린 사람이 고쳐서 다시 제출하거나 삭제"""
+    expense = _get_visible(db, org_id, expense_id, me)
+    if expense.status != ExpenseStatus.SUBMITTED:
+        raise _conflict("승인 대기 중인 지출만 반려할 수 있습니다.")
+    expense.status = ExpenseStatus.REJECTED
+    expense.reject_reason = body.reason
+    _log(expense, me, ApprovalAction.REJECT, body.reason)
+    db.commit()
+    return _detail(db, expense, me)
+
+
+@router.post("/expenses/{expense_id}/unapprove")
+def unapprove_expense(
+    org_id: int, expense_id: int, body: ReviewRequest, me: ReviewerMembership, db: DbSession
+) -> ExpenseDetail:
+    """승인 취소 (승인됨 → 승인 대기). 돌려주기 전에만"""
+    expense = _get_visible(db, org_id, expense_id, me)
+    if expense.status != ExpenseStatus.APPROVED:
+        raise _conflict("승인된 지출만 승인을 취소할 수 있습니다.")
+    if expense.reimbursed_at is not None:
+        raise _conflict("이미 돌려준 지출이에요. 환급 완료를 먼저 취소하세요.")
+    expense.status = ExpenseStatus.SUBMITTED
+    _log(expense, me, ApprovalAction.UNAPPROVE, body.comment)
+    db.commit()
+    return _detail(db, expense, me)
+
+
+@router.post("/expenses/{expense_id}/reimbursement")
+def reimburse_expense(org_id: int, expense_id: int, me: TreasurerMembership, db: DbSession) -> ExpenseDetail:
+    """환급 완료로 표시 (총무). 실제 송금은 앱 밖에서 하고, 여기선 보낸 것만 기록"""
+    expense = _get_visible(db, org_id, expense_id, me)
+    if expense.status != ExpenseStatus.APPROVED:
+        raise _conflict("승인된 지출만 환급 완료로 표시할 수 있습니다.")
+    if expense.reimbursed_at is not None:
+        raise _conflict("이미 환급 완료로 표시된 지출입니다.")
+    expense.reimbursed_at = datetime.now(UTC)
+    expense.reimbursed_by_membership_id = me.id
+    _log(expense, me, ApprovalAction.REIMBURSE)
+    db.commit()
+    return _detail(db, expense, me)
+
+
+@router.delete("/expenses/{expense_id}/reimbursement")
+def unreimburse_expense(org_id: int, expense_id: int, me: TreasurerMembership, db: DbSession) -> ExpenseDetail:
+    """환급 완료 취소 (총무, 잘못 누른 경우)"""
+    expense = _get_visible(db, org_id, expense_id, me)
+    if expense.reimbursed_at is None:
+        raise _conflict("환급 완료로 표시되지 않은 지출입니다.")
+    expense.reimbursed_at = None
+    expense.reimbursed_by_membership_id = None
+    _log(expense, me, ApprovalAction.UNREIMBURSE)
+    db.commit()
+    return _detail(db, expense, me)
 
 
 @router.get(

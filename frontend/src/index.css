@@ -423,6 +423,16 @@ img {
   background: var(--primary-press);
 }
 
+.btn--danger {
+  background: var(--danger);
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.btn--danger:active:not(:disabled) {
+  background: #a92e26;
+}
+
 .btn--secondary {
   background: var(--secondary);
   color: var(--secondary-text);
@@ -1079,6 +1089,7 @@ button.row-item:active:not(:disabled) {
   color: var(--text-2);
   font-size: 15px;
   line-height: 1.5;
+  white-space: pre-line; /* 여러 줄 안내 (예산 경고) */
 }
 
 .sheet__body {
@@ -1886,6 +1897,217 @@ button.row-item:active:not(:disabled) {
 }
 
 /* 폰 설정에서 '동작 줄이기'를 켠 사람에겐 움직임을 끈다 */
+/* ---------- 결재: 처리 기록 · 사유 입력 ---------- */
+.timeline {
+  display: flex;
+  flex-direction: column;
+  margin-top: 14px;
+}
+
+.timeline__item {
+  position: relative;
+  display: flex;
+  gap: 12px;
+  padding-bottom: 16px;
+}
+
+.timeline__item:last-child {
+  padding-bottom: 2px;
+}
+
+/* 점과 점을 잇는 세로 줄 */
+.timeline__item:not(:last-child)::before {
+  content: '';
+  position: absolute;
+  top: 32px;
+  bottom: 4px;
+  left: 13px;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--line);
+}
+
+.timeline__dot {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--neutral-weak);
+  color: var(--text-2);
+}
+
+.timeline__dot--ok {
+  background: var(--primary-weak);
+  color: var(--primary);
+}
+
+.timeline__dot--danger {
+  background: var(--danger-weak);
+  color: var(--danger);
+}
+
+.timeline__dot--done {
+  background: var(--ok-weak);
+  color: var(--ok);
+}
+
+.timeline__body {
+  min-width: 0;
+  padding-top: 3px;
+}
+
+.timeline__title {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.timeline__meta {
+  margin-top: 2px;
+  color: var(--text-3);
+  font-size: 13px;
+}
+
+.timeline__comment {
+  margin-top: 6px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: 14px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.textarea {
+  display: block;
+  width: 100%;
+  min-height: 96px;
+  padding: 12px 14px;
+  border: 0;
+  border-radius: 14px;
+  outline: none;
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 1px var(--line);
+  font-size: 16px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.textarea:focus {
+  box-shadow: inset 0 0 0 2px var(--primary);
+}
+
+.reason-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.reason-chip {
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 16px;
+  background: var(--neutral-weak);
+  color: var(--text-2);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.text-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0 8px;
+}
+
+/* ---------- 예산 막대 ---------- */
+.meter {
+  display: flex;
+  height: 8px;
+  overflow: hidden;
+  border-radius: 4px;
+  background: var(--secondary);
+}
+
+.meter--lg {
+  height: 12px;
+  border-radius: 6px;
+}
+
+.meter__spent {
+  height: 100%;
+  background: var(--primary);
+  transition: width 0.9s var(--ease-out);
+}
+
+.meter--over .meter__spent {
+  background: var(--danger);
+}
+
+/* 승인 대기: 빗금 (색만으로 구분하지 않게) */
+.meter__awaiting {
+  height: 100%;
+  background: repeating-linear-gradient(-45deg, var(--warn-line) 0 4px, #f6d2ac 4px 8px);
+  transition: width 0.9s var(--ease-out);
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin-top: 10px;
+  color: var(--text-3);
+  font-size: 13px;
+}
+
+.legend__swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 5px;
+  border-radius: 3px;
+  vertical-align: -1px;
+}
+
+.budget-row {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 8px;
+}
+
+.budget-row + .budget-row {
+  border-top: 1px solid var(--line-soft);
+}
+
+.budget-row__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.budget-row__foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--text-3);
+  font-size: 13px;
+}
+
+.period-inputs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.period-inputs .input {
+  min-width: 0;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

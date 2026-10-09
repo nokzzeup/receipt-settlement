@@ -4,7 +4,9 @@ import { useCategories } from '../api/categories'
 import { errorMessage } from '../api/client'
 import { useExpense } from '../api/expenses'
 import type { Category, ExpenseDetail } from '../api/types'
+import { ExpenseActions } from '../components/ExpenseActions'
 import { ExpenseForm } from '../components/ExpenseForm'
+import { HistoryList } from '../components/HistoryList'
 import { Icon } from '../components/Icon'
 import { OcrText } from '../components/OcrText'
 import { Page } from '../components/Page'
@@ -18,7 +20,7 @@ import { categoryLook, chipStyle } from '../lib/categoryStyle'
 import { formatDateTime, formatWon } from '../lib/format'
 import { stagger } from '../lib/motion'
 
-/** 지출 상세. 작성 중이고 내가 고칠 수 있으면 확인·수정 폼, 아니면 읽기 전용 */
+/** 지출 상세. 작성 중·반려됨이고 내가 고칠 수 있으면 확인·수정 폼, 아니면 읽기 전용(+ 승인·환급 버튼) */
 export function ExpenseDetailPage() {
   const orgId = useOrgId()
   const expenseId = Number(useParams().expenseId)
@@ -51,10 +53,13 @@ export function ExpenseDetailPage() {
   }
 
   const data = expense.data
+  const title = data.can_edit ? (data.status === 'REJECTED' ? '고쳐서 다시 제출' : '내용 확인') : '지출 상세'
+  // 아래에 큰 버튼 막대가 있는 화면 (제출·승인·보냈어요) → 내용이 막대에 가리지 않게
+  const hasCta = data.can_edit || data.can_review || data.can_reimburse
   return (
     <>
-      <TopBar back={listUrl} backLabel="지출 목록으로" title={data.can_edit ? '내용 확인' : '지출 상세'} />
-      <div className={data.can_edit ? 'screen screen--with-cta' : 'screen'}>
+      <TopBar back={listUrl} backLabel="지출 목록으로" title={title} />
+      <div className={hasCta ? 'screen screen--with-cta' : 'screen'}>
         {data.can_edit ? (
           <ExpenseForm key={data.id} orgId={orgId} expense={data} onSubmitted={setSubmitted} />
         ) : (
@@ -82,6 +87,27 @@ function ExpenseReadOnly({ orgId, expense, categories }: ReadOnlyProps) {
           {expense.uploader.name} · {formatDateTime(expense.created_at)} 등록
         </span>
       </div>
+
+      {expense.reimbursed_at && (
+        <p className="banner anim-rise" style={{ background: 'var(--ok-weak)', color: 'var(--ok)' }}>
+          <Icon name="checkCircle" size={20} />
+          {expense.payer.name}님에게 돌려줬어요 · {formatDateTime(expense.reimbursed_at)}
+          {expense.reimbursed_by && ` · ${expense.reimbursed_by.name}`}
+        </p>
+      )}
+      {expense.budget_warnings.length > 0 && (
+        <div className="banner banner--warn anim-rise" role="note">
+          <Icon name="alert" size={20} />
+          <span>
+            승인하면 예산을 넘어요
+            {expense.budget_warnings.map((w) => (
+              <span key={w.category_id} style={{ display: 'block', fontWeight: 500, fontSize: 14, marginTop: 2 }}>
+                {w.category_name} 예산 {formatWon(w.budget)} · 지금 {formatWon(w.spent)} → {formatWon(w.over_by)} 넘음
+              </span>
+            ))}
+          </span>
+        </div>
+      )}
 
       {expense.status === 'DRAFT' && (
         <p className="banner banner--warn anim-rise">
@@ -158,7 +184,11 @@ function ExpenseReadOnly({ orgId, expense, categories }: ReadOnlyProps) {
         </div>
       </section>
 
+      <HistoryList entries={expense.history} style={stagger(4)} />
+
       <OcrText lines={receipt.ocr_text} />
+
+      <ExpenseActions orgId={orgId} expense={expense} />
     </>
   )
 }

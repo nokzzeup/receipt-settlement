@@ -150,6 +150,31 @@ const PATHS = {
     </>
   ),
   dots: <path d="M6.5 12h.01M12 12h.01M17.5 12h.01" style={{ strokeWidth: 3 }} />,
+  calendar: (
+    <>
+      <rect x="4" y="5.5" width="16" height="14.5" rx="2" />
+      <path d="M4 10h16M8.5 3.5v4M15.5 3.5v4" />
+    </>
+  ),
+  send: <path d="M20.5 3.5 10 14M20.5 3.5 14 20.5l-4-6.5-6.5-4z" />,
+  undo: (
+    <>
+      <path d="M9 14 4.5 9.5 9 5" />
+      <path d="M5 9.5h9.5a5 5 0 0 1 0 10H11" />
+    </>
+  ),
+  download: (
+    <>
+      <path d="M12 4v11M7.5 10.5 12 15l4.5-4.5" />
+      <path d="M5 19.5h14" />
+    </>
+  ),
+  chart: (
+    <>
+      <path d="M4.5 19.5h15" />
+      <path d="M7.5 16v-4M12 16V7M16.5 16v-6" />
+    </>
+  ),
 } satisfies Record<string, ReactNode>
 
 export type IconName = keyof typeof PATHS

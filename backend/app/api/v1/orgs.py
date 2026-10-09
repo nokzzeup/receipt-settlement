@@ -4,7 +4,7 @@
 - 조직 생성자는 총무(TREASURER), 초대 코드로 들어온 사람은 구성원(MEMBER)
 - 조직을 만들면 기본 계정과목(app/classify/defaults.py)이 같이 만들어진다
 - 조직 정보·구성원 목록: 그 조직 구성원 누구나 (구성원이 아니면 404)
-- 초대 코드 보기·재발급, 역할 변경: 총무만 (403)
+- 초대 코드 보기·재발급, 역할 변경, 조직 이름·예산 기간 변경: 총무만 (403)
 - 총무는 항상 1명 이상 남아야 함 (마지막 총무의 역할은 못 바꿈)
 """
 
@@ -16,7 +16,16 @@ from sqlalchemy import func, select
 from app.api.deps import CurrentMembership, CurrentUser, DbSession, TreasurerMembership
 from app.classify.defaults import DEFAULT_CATEGORY_NAMES
 from app.models import Category, Membership, MembershipRole, Organization, User
-from app.schemas.org import InviteCodeOut, JoinRequest, MemberOut, OrgCreate, OrgDetail, OrgSummary, RoleUpdate
+from app.schemas.org import (
+    InviteCodeOut,
+    JoinRequest,
+    MemberOut,
+    OrgCreate,
+    OrgDetail,
+    OrgSummary,
+    OrgUpdate,
+    RoleUpdate,
+)
 
 router = APIRouter(prefix="/orgs", tags=["orgs"])
 
@@ -42,6 +51,8 @@ def _org_detail(org: Organization, membership: Membership) -> OrgDetail:
         name=org.name,
         my_role=membership.role,
         invite_code=org.invite_code if membership.role == MembershipRole.TREASURER else None,
+        budget_period_start=org.budget_period_start,
+        budget_period_end=org.budget_period_end,
         created_at=org.created_at,
     )
 
@@ -107,6 +118,19 @@ def join_org(body: JoinRequest, user: CurrentUser, db: DbSession) -> OrgDetail:
 @router.get("/{org_id}")
 def get_org(org_id: int, me: CurrentMembership, db: DbSession) -> OrgDetail:
     return _org_detail(db.get_one(Organization, org_id), me)
+
+
+@router.patch("/{org_id}")
+def update_org(org_id: int, body: OrgUpdate, me: TreasurerMembership, db: DbSession) -> OrgDetail:
+    """조직 이름·예산 기간 변경 (총무). 보낸 칸만 바뀐다"""
+    org = db.get_one(Organization, org_id)
+    if body.name is not None:
+        org.name = body.name
+    if "budget_period_start" in body.model_fields_set:
+        org.budget_period_start = body.budget_period_start
+        org.budget_period_end = body.budget_period_end
+    db.commit()
+    return _org_detail(org, me)
 
 
 @router.post("/{org_id}/invite-code")

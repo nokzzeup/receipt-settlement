@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, unwrap } from './client'
+import { settlementKeys } from './keys'
 import type { ExpenseDetail, ExpenseUpdate } from './types'
 
 export const expenseKeys = {
@@ -28,12 +29,13 @@ export function useExpense(orgId: number, expenseId: number) {
   })
 }
 
-/** 지출 하나가 바뀌었을 때: 상세는 응답으로 바로 교체, 목록은 다시 불러오기 */
+/** 지출 하나가 바뀌었을 때: 상세는 응답으로 바로 교체, 목록·정산 요약은 다시 불러오기 */
 function useExpenseChanged(orgId: number) {
   const queryClient = useQueryClient()
   return (expense: ExpenseDetail) => {
     queryClient.setQueryData(expenseKeys.detail(orgId, expense.id), expense)
     queryClient.invalidateQueries({ queryKey: expenseKeys.list(orgId), exact: true })
+    queryClient.invalidateQueries({ queryKey: settlementKeys.summary(orgId) })
   }
 }
 
@@ -85,7 +87,56 @@ export function useDeleteExpense(orgId: number, expenseId: number) {
     onSuccess: () => {
       queryClient.removeQueries({ queryKey: expenseKeys.detail(orgId, expenseId) })
       queryClient.invalidateQueries({ queryKey: expenseKeys.list(orgId), exact: true })
+      queryClient.invalidateQueries({ queryKey: settlementKeys.summary(orgId) })
     },
+  })
+}
+
+/** 제출 뒤 상태 바꾸기 (서버가 권한·순서를 다시 확인하고, 안 맞으면 403·409) */
+export type ExpenseAction =
+  | { type: 'withdraw' }
+  | { type: 'approve'; comment?: string }
+  | { type: 'reject'; reason: string }
+  | { type: 'unapprove'; comment?: string }
+  | { type: 'reimburse' }
+  | { type: 'unreimburse' }
+
+export function useExpenseAction(orgId: number, expenseId: number) {
+  const onSuccess = useExpenseChanged(orgId)
+  return useMutation({
+    mutationFn: async (action: ExpenseAction) => {
+      const params = pathOf(orgId, expenseId)
+      switch (action.type) {
+        case 'withdraw':
+          return unwrap(await api.POST('/api/v1/orgs/{org_id}/expenses/{expense_id}/withdraw', { params }))
+        case 'approve':
+          return unwrap(
+            await api.POST('/api/v1/orgs/{org_id}/expenses/{expense_id}/approve', {
+              params,
+              body: { comment: action.comment || null },
+            }),
+          )
+        case 'reject':
+          return unwrap(
+            await api.POST('/api/v1/orgs/{org_id}/expenses/{expense_id}/reject', {
+              params,
+              body: { reason: action.reason },
+            }),
+          )
+        case 'unapprove':
+          return unwrap(
+            await api.POST('/api/v1/orgs/{org_id}/expenses/{expense_id}/unapprove', {
+              params,
+              body: { comment: action.comment || null },
+            }),
+          )
+        case 'reimburse':
+          return unwrap(await api.POST('/api/v1/orgs/{org_id}/expenses/{expense_id}/reimbursement', { params }))
+        case 'unreimburse':
+          return unwrap(await api.DELETE('/api/v1/orgs/{org_id}/expenses/{expense_id}/reimbursement', { params }))
+      }
+    },
+    onSuccess,
   })
 }
 

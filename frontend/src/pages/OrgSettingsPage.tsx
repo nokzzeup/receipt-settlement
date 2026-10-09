@@ -161,7 +161,7 @@ export function OrgSettingsPage() {
             </p>
           )}
           <p className="caption" style={{ padding: '6px 8px 12px', lineHeight: 1.6 }}>
-            총무: 초대 코드·역할·계정과목 관리 · 승인자: 지출 승인/반려 · 구성원: 영수증 등록
+            총무: 초대 코드·역할·계정과목·예산 관리, 승인, 환급 표시 · 승인자: 지출 승인/반려 · 구성원: 영수증 등록
           </p>
         </section>
 

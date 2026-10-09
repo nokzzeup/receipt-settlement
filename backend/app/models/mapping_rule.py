@@ -13,11 +13,13 @@ if TYPE_CHECKING:
 class MappingRule(TimestampMixin, Base):
     """품목명 키워드 → 계정과목 매핑 규칙.
 
-    두 종류가 한 테이블에 있다 (CHECK 제약으로 강제):
-    - 조직 규칙  : organization_id + category_id   ← 사용자 수정 이력으로 생성·보강
-    - 전역 규칙  : organization_id = NULL + category_name
-      계정과목은 조직마다 따로 있어서 전역 규칙은 특정 category_id를 가리킬 수 없다.
-      그래서 이름(예: "식비")으로 저장하고, 분류할 때 그 조직의 같은 이름 계정과목에 매칭한다.
+    지금 쓰는 것은 조직 규칙뿐이다 (4단계 결정): organization_id + category_id, keyword = 정규화한 품목명.
+    제출할 때 사용자가 직접 고른 품목으로 생성·hit_count 증가 (app/classify/classifier.py).
+    기본(전역) 규칙은 코드(app/classify/defaults.py)에 둔다 — 아래 전역 규칙 칸은 예비로 남겨둔 것.
+
+    두 종류가 한 테이블에 들어갈 수 있게 되어 있다 (CHECK 제약으로 강제):
+    - 조직 규칙  : organization_id + category_id
+    - 전역 규칙  : organization_id = NULL + category_name (계정과목 이름으로 매칭, 지금은 안 씀)
 
     유니크 제약 2개는 NULL을 서로 다른 값으로 취급하는 특성 때문에
     첫 번째는 조직 규칙에만, 두 번째는 전역 규칙에만 실제로 적용된다.

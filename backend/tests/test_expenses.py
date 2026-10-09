@@ -10,7 +10,7 @@ from app.api.v1 import expenses as expenses_api
 from app.main import app
 from app.models import ApprovalLog, Expense, Receipt
 from app.ocr import OcrEngine, OcrRawResult, get_ocr_engine
-from tests.conftest import FAKE_JPEG, ORGS, create_org, join_org, signup, upload_receipt
+from tests.conftest import FAKE_JPEG, ORGS, create_org, signup, upload_receipt, url, valid_body
 
 
 class FailingOcrEngine(OcrEngine):
@@ -18,51 +18,6 @@ class FailingOcrEngine(OcrEngine):
 
     def recognize(self, image_bytes: bytes) -> OcrRawResult:
         raise RuntimeError("모델 로딩 실패")
-
-
-@pytest.fixture
-def team(client: TestClient) -> dict:
-    """총무 / 승인자 / 구성원 2명 + 조직"""
-    owner = signup(client, "owner@example.com", "총무")
-    approver = signup(client, "approver@example.com", "승인자")
-    alice = signup(client, "alice@example.com", "앨리스")
-    bob = signup(client, "bob@example.com", "밥")
-    org = create_org(client, owner)
-    for headers in (approver, alice, bob):
-        join_org(client, headers, org["invite_code"])
-    members = {m["name"]: m for m in client.get(f"{ORGS}/{org['id']}/members", headers=owner).json()}
-    client.patch(
-        f"{ORGS}/{org['id']}/members/{members['승인자']['membership_id']}", json={"role": "APPROVER"}, headers=owner
-    )
-    categories = client.get(f"{ORGS}/{org['id']}/categories", headers=owner).json()
-    return {
-        "org_id": org["id"],
-        "owner": owner,
-        "approver": approver,
-        "alice": alice,
-        "bob": bob,
-        "members": {name: m["membership_id"] for name, m in members.items()},
-        "category_ids": [c["id"] for c in categories],
-    }
-
-
-def url(team: dict, expense_id: int | None = None, suffix: str = "") -> str:
-    base = f"{ORGS}/{team['org_id']}/expenses"
-    return base if expense_id is None else f"{base}/{expense_id}{suffix}"
-
-
-def valid_body(team: dict, payer: str = "앨리스") -> dict:
-    snack, office = team["category_ids"][1], team["category_ids"][2]
-    return {
-        "store_name": "행복마트 테스트점",
-        "paid_at": "2026-09-28T14:32:00+09:00",
-        "total_amount": 25400,
-        "payer_membership_id": team["members"][payer],
-        "items": [
-            {"name": "생수 2L", "quantity": 2, "unit_price": 1200, "amount": 2400, "category_id": snack},
-            {"name": "A4용지", "quantity": 1, "unit_price": 6500, "amount": 6500, "category_id": office},
-        ],
-    }
 
 
 # ---------- 업로드 ----------
@@ -144,9 +99,12 @@ def test_upload_still_works_when_ocr_fails(client: TestClient, team: dict) -> No
 def test_members_see_only_their_own_expenses(client: TestClient, team: dict) -> None:
     expense = upload_receipt(client, team["alice"], team["org_id"]).json()
 
-    for who in ("alice", "owner", "approver"):
+    for who in ("alice", "owner"):
         assert client.get(url(team, expense["id"]), headers=team[who]).status_code == 200
         assert [e["id"] for e in client.get(url(team), headers=team[who]).json()] == [expense["id"]]
+    # 승인자는 남의 작성 중 지출은 못 봄 (제출되면 보임 — test_approval.py)
+    assert client.get(url(team, expense["id"]), headers=team["approver"]).status_code == 404
+    assert client.get(url(team), headers=team["approver"]).json() == []
 
     # 다른 구성원은 남의 지출을 못 봄 (있는지도 모르게 404)
     assert client.get(url(team, expense["id"]), headers=team["bob"]).status_code == 404
@@ -170,7 +128,7 @@ def test_members_see_only_their_own_expenses(client: TestClient, team: dict) -> 
 def test_receipt_image_download(client: TestClient, team: dict) -> None:
     expense = upload_receipt(client, team["alice"], team["org_id"]).json()
 
-    response = client.get(url(team, expense["id"], "/image"), headers=team["approver"])
+    response = client.get(url(team, expense["id"], "/image"), headers=team["owner"])
     assert response.status_code == 200
     assert response.headers["content-type"] == "image/jpeg"
     assert response.content == FAKE_JPEG
@@ -232,10 +190,9 @@ def test_only_uploader_or_treasurer_can_edit_drafts(client: TestClient, team: di
     expense = upload_receipt(client, team["alice"], team["org_id"]).json()
     body = valid_body(team)
 
-    # 승인자는 볼 수는 있지만 남의 작성 중 지출은 못 고침
-    detail = client.get(url(team, expense["id"]), headers=team["approver"]).json()
-    assert detail["can_edit"] is False
-    assert client.put(url(team, expense["id"]), json=body, headers=team["approver"]).status_code == 403
+    # 승인자는 남의 작성 중 지출을 보지도 고치지도 못함
+    assert client.get(url(team, expense["id"]), headers=team["approver"]).status_code == 404
+    assert client.put(url(team, expense["id"]), json=body, headers=team["approver"]).status_code == 404
     assert client.get(url(team, expense["id"]), headers=team["owner"]).json()["can_edit"] is True
     assert client.put(url(team, expense["id"]), json=body, headers=team["owner"]).status_code == 200
 
@@ -294,7 +251,7 @@ def test_delete_draft_removes_receipt_and_image(
     assert len(list(folder.iterdir())) == 1
 
     assert client.delete(url(team, expense["id"]), headers=team["bob"]).status_code == 404  # 못 보는 사람
-    assert client.delete(url(team, expense["id"]), headers=team["approver"]).status_code == 403
+    assert client.delete(url(team, expense["id"]), headers=team["approver"]).status_code == 404  # 남의 작성 중
     assert client.delete(url(team, expense["id"]), headers=team["alice"]).status_code == 204
 
     assert client.get(url(team, expense["id"]), headers=team["alice"]).status_code == 404

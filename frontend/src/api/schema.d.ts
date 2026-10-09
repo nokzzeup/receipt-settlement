@@ -136,7 +136,11 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Update Org
+         * @description 조직 이름·예산 기간 변경 (총무). 보낸 칸만 바뀐다
+         */
+        patch: operations["update_org_api_v1_orgs__org_id__patch"];
         trace?: never;
     };
     "/api/v1/orgs/{org_id}/invite-code": {
@@ -292,7 +296,7 @@ export interface paths {
         post?: never;
         /**
          * Delete Expense
-         * @description 작성 중 지출 삭제 (영수증 기록·원본 이미지도 같이)
+         * @description 작성 중·반려된 지출 삭제 (영수증 기록·원본 이미지·결재 이력도 같이)
          */
         delete: operations["delete_expense_api_v1_orgs__org_id__expenses__expense_id__delete"];
         options?: never;
@@ -311,10 +315,114 @@ export interface paths {
         put?: never;
         /**
          * Submit Expense
-         * @description 제출 → 승인 대기. 저장된 내용 기준으로 빠진 값이 있으면 422 (무엇이 빠졌는지 메시지로)
+         * @description 제출(작성 중·반려됨 → 승인 대기). 저장된 내용 기준으로 빠진 값이 있으면 422 (무엇이 빠졌는지 메시지로)
          */
         post: operations["submit_expense_api_v1_orgs__org_id__expenses__expense_id__submit_post"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{org_id}/expenses/{expense_id}/withdraw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Withdraw Expense
+         * @description 제출 취소 (승인 대기 → 작성 중). 승인·반려되기 전에만, 올린 사람 또는 총무
+         */
+        post: operations["withdraw_expense_api_v1_orgs__org_id__expenses__expense_id__withdraw_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{org_id}/expenses/{expense_id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve Expense
+         * @description 승인 (승인 대기 → 승인됨 = 환급 대상). 예산을 넘어도 승인은 된다 (경고는 상세의 budget_warnings)
+         */
+        post: operations["approve_expense_api_v1_orgs__org_id__expenses__expense_id__approve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{org_id}/expenses/{expense_id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reject Expense
+         * @description 반려 (승인 대기 → 반려됨). 사유 필수 → 올린 사람이 고쳐서 다시 제출하거나 삭제
+         */
+        post: operations["reject_expense_api_v1_orgs__org_id__expenses__expense_id__reject_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{org_id}/expenses/{expense_id}/unapprove": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Unapprove Expense
+         * @description 승인 취소 (승인됨 → 승인 대기). 돌려주기 전에만
+         */
+        post: operations["unapprove_expense_api_v1_orgs__org_id__expenses__expense_id__unapprove_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{org_id}/expenses/{expense_id}/reimbursement": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reimburse Expense
+         * @description 환급 완료로 표시 (총무). 실제 송금은 앱 밖에서 하고, 여기선 보낸 것만 기록
+         */
+        post: operations["reimburse_expense_api_v1_orgs__org_id__expenses__expense_id__reimbursement_post"];
+        /**
+         * Unreimburse Expense
+         * @description 환급 완료 취소 (총무, 잘못 누른 경우)
+         */
+        delete: operations["unreimburse_expense_api_v1_orgs__org_id__expenses__expense_id__reimbursement_delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -340,10 +448,52 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/orgs/{org_id}/settlement": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Settlement */
+        get: operations["get_settlement_api_v1_orgs__org_id__settlement_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{org_id}/settlement/reimburse": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reimburse Payer
+         * @description 결제자 한 명에게 보낸 것으로 한 번에 표시 (총무). 목록 중 하나라도 그 사이 바뀌었으면 아무것도 안 바꾸고 409
+         */
+        post: operations["reimburse_payer_api_v1_orgs__org_id__settlement_reimburse_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * ApprovalAction
+         * @enum {string}
+         */
+        ApprovalAction: "SUBMIT" | "WITHDRAW" | "APPROVE" | "UNAPPROVE" | "REJECT" | "REIMBURSE" | "UNREIMBURSE";
         /** Body_upload_receipt_api_v1_orgs__org_id__receipts_post */
         Body_upload_receipt_api_v1_orgs__org_id__receipts_post: {
             /**
@@ -351,6 +501,60 @@ export interface components {
              * @description 영수증 사진 (JPG·PNG·WEBP, 15MB 이하)
              */
             image: string;
+        };
+        /** BudgetPeriodOut */
+        BudgetPeriodOut: {
+            /**
+             * Start
+             * Format: date
+             */
+            start: string;
+            /**
+             * End
+             * Format: date
+             */
+            end: string;
+        };
+        /**
+         * BudgetState
+         * @enum {string}
+         */
+        BudgetState: "NO_BUDGET" | "OK" | "AT_RISK" | "OVER";
+        /**
+         * BudgetWarningOut
+         * @description 이 지출을 승인하면 예산을 넘는 계정과목
+         */
+        BudgetWarningOut: {
+            /** Category Id */
+            category_id: number;
+            /** Category Name */
+            category_name: string;
+            /** Budget */
+            budget: number;
+            /** Spent */
+            spent: number;
+            /** This Amount */
+            this_amount: number;
+            /** Over By */
+            over_by: number;
+        };
+        /**
+         * BulkReimburseRequest
+         * @description 결제자 한 명에게 한 번에 보낸 것으로 표시. 화면에서 본 지출 목록을 그대로 보낸다
+         *     (그 사이 새로 승인된 지출이 섞여 들어가지 않게)
+         */
+        BulkReimburseRequest: {
+            /** Payer Membership Id */
+            payer_membership_id: number;
+            /** Expense Ids */
+            expense_ids: number[];
+        };
+        /** BulkReimburseResult */
+        BulkReimburseResult: {
+            /** Count */
+            count: number;
+            /** Amount */
+            amount: number;
         };
         /** CategoryCreate */
         CategoryCreate: {
@@ -383,6 +587,22 @@ export interface components {
             /** Budget Amount */
             budget_amount?: number | null;
         };
+        /** CategoryUsageOut */
+        CategoryUsageOut: {
+            /** Category Id */
+            category_id: number;
+            /** Name */
+            name: string;
+            /** Budget */
+            budget: number | null;
+            /** Spent */
+            spent: number;
+            /** Awaiting */
+            awaiting: number;
+            /** Remaining */
+            remaining: number | null;
+            state: components["schemas"]["BudgetState"];
+        };
         /** ExpenseDetail */
         ExpenseDetail: {
             /** Id */
@@ -392,6 +612,7 @@ export interface components {
             reject_reason: string | null;
             /** Reimbursed At */
             reimbursed_at: string | null;
+            reimbursed_by: components["schemas"]["PersonOut"] | null;
             /** Amount */
             amount: number;
             payer: components["schemas"]["PersonOut"];
@@ -399,8 +620,22 @@ export interface components {
             receipt: components["schemas"]["ReceiptOut"];
             /** Items */
             items: components["schemas"]["ExpenseItemOut"][];
+            /** History */
+            history: components["schemas"]["HistoryEntryOut"][];
             /** Can Edit */
             can_edit: boolean;
+            /** Can Withdraw */
+            can_withdraw: boolean;
+            /** Can Review */
+            can_review: boolean;
+            /** Can Unapprove */
+            can_unapprove: boolean;
+            /** Can Reimburse */
+            can_reimburse: boolean;
+            /** Can Unreimburse */
+            can_unreimburse: boolean;
+            /** Budget Warnings */
+            budget_warnings: components["schemas"]["BudgetWarningOut"][];
             /**
              * Created At
              * Format: date-time
@@ -520,6 +755,21 @@ export interface components {
              */
             ocr: "mock" | "paddle" | "unavailable" | "pending";
         };
+        /**
+         * HistoryEntryOut
+         * @description 제출·승인·반려·환급 기록 한 줄 (오래된 순)
+         */
+        HistoryEntryOut: {
+            action: components["schemas"]["ApprovalAction"];
+            actor: components["schemas"]["PersonOut"];
+            /** Comment */
+            comment: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
         /** InviteCodeOut */
         InviteCodeOut: {
             /** Invite Code */
@@ -576,6 +826,10 @@ export interface components {
             my_role: components["schemas"]["MembershipRole"];
             /** Invite Code */
             invite_code: string | null;
+            /** Budget Period Start */
+            budget_period_start: string | null;
+            /** Budget Period End */
+            budget_period_end: string | null;
             /**
              * Created At
              * Format: date-time
@@ -594,6 +848,30 @@ export interface components {
             my_role: components["schemas"]["MembershipRole"];
             /** Member Count */
             member_count: number;
+        };
+        /**
+         * OrgUpdate
+         * @description 조직 설정 (총무). 보낸 칸만 바꾼다. 예산 기간은 시작·끝을 같이 보내고, 둘 다 null이면 기간 없음
+         */
+        OrgUpdate: {
+            /** Name */
+            name?: string | null;
+            /** Budget Period Start */
+            budget_period_start?: string | null;
+            /** Budget Period End */
+            budget_period_end?: string | null;
+        };
+        /** PayerBalanceOut */
+        PayerBalanceOut: {
+            payer: components["schemas"]["PersonOut"];
+            /** To Reimburse */
+            to_reimburse: number;
+            /** Expenses */
+            expenses: components["schemas"]["ReimbursableExpense"][];
+            /** Awaiting Approval */
+            awaiting_approval: number;
+            /** Awaiting Count */
+            awaiting_count: number;
         };
         /** PersonOut */
         PersonOut: {
@@ -622,9 +900,73 @@ export interface components {
              */
             uploaded_at: string;
         };
+        /**
+         * ReimbursableExpense
+         * @description 승인됐고 아직 안 돌려준 지출
+         */
+        ReimbursableExpense: {
+            /** Id */
+            id: number;
+            /** Store Name */
+            store_name: string | null;
+            /** Paid At */
+            paid_at: string | null;
+            /** Amount */
+            amount: number;
+        };
+        /** RejectRequest */
+        RejectRequest: {
+            /**
+             * Reason
+             * @description 반려 사유 (올린 사람에게 보임)
+             */
+            reason: string;
+        };
+        /**
+         * ReviewRequest
+         * @description 승인·승인 취소 (메모는 선택)
+         */
+        ReviewRequest: {
+            /** Comment */
+            comment?: string | null;
+        };
         /** RoleUpdate */
         RoleUpdate: {
             role: components["schemas"]["MembershipRole"];
+        };
+        /**
+         * SettlementOut
+         * @description 정산 화면 + 홈 '돌려받을 돈'.
+         *
+         *     scope: 총무·승인자는 조직 전체("org"), 구성원은 내 것만("me") — payers·합계가 그 범위.
+         *     계정별 예산 사용(categories)은 모두에게 조직 전체로 보인다.
+         */
+        SettlementOut: {
+            /**
+             * Scope
+             * @enum {string}
+             */
+            scope: "org" | "me";
+            /** To Reimburse */
+            to_reimburse: number;
+            /** To Reimburse Count */
+            to_reimburse_count: number;
+            /** Awaiting Approval */
+            awaiting_approval: number;
+            /** Awaiting Count */
+            awaiting_count: number;
+            /** Payers */
+            payers: components["schemas"]["PayerBalanceOut"][];
+            me: components["schemas"]["PayerBalanceOut"];
+            period: components["schemas"]["BudgetPeriodOut"] | null;
+            /** Categories */
+            categories: components["schemas"]["CategoryUsageOut"][];
+            /** Budget Total */
+            budget_total: number | null;
+            /** Spent Total */
+            spent_total: number;
+            /** Awaiting Total */
+            awaiting_total: number;
         };
         /** SignupRequest */
         SignupRequest: {
@@ -902,6 +1244,42 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrgDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_org_api_v1_orgs__org_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 조직 id */
+                org_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrgUpdate"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -1376,6 +1754,216 @@ export interface operations {
             };
         };
     };
+    withdraw_expense_api_v1_orgs__org_id__expenses__expense_id__withdraw_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 조직 id */
+                org_id: number;
+                expense_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExpenseDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    approve_expense_api_v1_orgs__org_id__expenses__expense_id__approve_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 조직 id */
+                org_id: number;
+                expense_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExpenseDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reject_expense_api_v1_orgs__org_id__expenses__expense_id__reject_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 조직 id */
+                org_id: number;
+                expense_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RejectRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExpenseDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unapprove_expense_api_v1_orgs__org_id__expenses__expense_id__unapprove_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 조직 id */
+                org_id: number;
+                expense_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExpenseDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reimburse_expense_api_v1_orgs__org_id__expenses__expense_id__reimbursement_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 조직 id */
+                org_id: number;
+                expense_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExpenseDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unreimburse_expense_api_v1_orgs__org_id__expenses__expense_id__reimbursement_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 조직 id */
+                org_id: number;
+                expense_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExpenseDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_receipt_image_api_v1_orgs__org_id__expenses__expense_id__image_get: {
         parameters: {
             query?: never;
@@ -1398,6 +1986,74 @@ export interface operations {
                     "image/jpeg": unknown;
                     "image/png": unknown;
                     "image/webp": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_settlement_api_v1_orgs__org_id__settlement_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 조직 id */
+                org_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettlementOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reimburse_payer_api_v1_orgs__org_id__settlement_reimburse_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 조직 id */
+                org_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkReimburseRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkReimburseResult"];
                 };
             };
             /** @description Validation Error */

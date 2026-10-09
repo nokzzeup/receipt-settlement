@@ -224,9 +224,9 @@ export function ExpenseForm({ orgId, expense, onSubmitted }: Props) {
       return
     }
     const ok = await confirm({
-      title: '제출할까요?',
-      message: '제출하면 승인 대기 상태가 되고 더 이상 고칠 수 없어요.',
-      confirmLabel: '제출하기',
+      title: isRejected ? '다시 제출할까요?' : '제출할까요?',
+      message: '제출하면 승인 대기 상태가 돼요. 승인 전에는 제출을 취소하고 고칠 수 있어요.',
+      confirmLabel: isRejected ? '다시 제출하기' : '제출하기',
     })
     if (!ok) return
     // 화면에서 고친 내용을 먼저 저장하고, 저장된 내용 기준으로 서버가 제출 조건을 검사
@@ -255,13 +255,23 @@ export function ExpenseForm({ orgId, expense, onSubmitted }: Props) {
     })
   }
 
+  const isRejected = expense.status === 'REJECTED'
   const sheetItem = sheet ? state.items.find((item) => item.key === sheet.key) : undefined
   const autoCount = state.items.filter(isAuto).length
   const message = formError ?? (serverError ? errorMessage(serverError) : null)
 
   return (
     <>
-      {expense.receipt.ocr_failed ? (
+      {isRejected ? (
+        <p className="banner banner--danger anim-rise">
+          <Icon name="alert" size={20} />
+          <span>
+            반려됐어요{expense.reject_reason && ` · ${expense.reject_reason}`}
+            <br />
+            고쳐서 다시 제출해 주세요
+          </span>
+        </p>
+      ) : expense.receipt.ocr_failed ? (
         <p className="banner banner--warn anim-rise">
           <Icon name="alert" size={20} />
           자동 인식에 실패했어요. 사진을 보면서 직접 입력해 주세요
@@ -516,7 +526,7 @@ export function ExpenseForm({ orgId, expense, onSubmitted }: Props) {
               {save.isPending && !submit.isPending ? '저장 중…' : '임시 저장'}
             </button>
             <button type="button" className="btn btn--primary btn--grow" onClick={handleSubmit} disabled={busy}>
-              {submit.isPending ? '제출 중…' : '제출하기'}
+              {submit.isPending ? '제출 중…' : isRejected ? '다시 제출하기' : '제출하기'}
             </button>
           </div>
         </div>,
