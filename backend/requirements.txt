@@ -12,3 +12,5 @@ PyJWT==2.15.1                # login access tokens (JWT)
 pwdlib[argon2]==0.3.1        # password hashing (argon2), as recommended by the FastAPI docs
 python-multipart==0.0.32     # FastAPI needs it to receive file uploads (receipt photos)
 tzdata==2026.4               # Windows has no tz database; needed for ZoneInfo("Asia/Seoul")
+openpyxl==3.1.5              # Excel (.xlsx) export of reports (pure Python, MIT license)
+pillow==12.3.0               # image fingerprint (perceptual hash) to warn about duplicate receipt photos

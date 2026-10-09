@@ -34,19 +34,22 @@ export function ExpenseActions({ orgId, expense }: { orgId: number; expense: Exp
   }
 
   async function approve() {
-    const warnings = expense.budget_warnings
+    const budget = expense.budget_warnings.map(
+      (w) => `${w.category_name}: 예산 ${formatWon(w.budget)} 중 ${formatWon(w.spent)} 썼어요. 승인하면 ${formatWon(w.over_by)} 넘어요`,
+    )
+    const duplicate =
+      expense.duplicates.length > 0 ? [`같은 영수증으로 보이는 지출이 ${expense.duplicates.length}건 있어요`] : []
+    const title =
+      budget.length > 0 && duplicate.length > 0
+        ? '확인할 게 있어요. 그래도 승인할까요?'
+        : budget.length > 0
+          ? '예산을 넘어요. 그래도 승인할까요?'
+          : duplicate.length > 0
+            ? '이미 올라온 영수증일 수 있어요. 그래도 승인할까요?'
+            : null
     const ok = await confirm(
-      warnings.length > 0
-        ? {
-            title: '예산을 넘어요. 그래도 승인할까요?',
-            message: warnings
-              .map(
-                (w) =>
-                  `${w.category_name}: 예산 ${formatWon(w.budget)} 중 ${formatWon(w.spent)} 썼어요. 승인하면 ${formatWon(w.over_by)} 넘어요`,
-              )
-              .join('\n'),
-            confirmLabel: '그래도 승인',
-          }
+      title
+        ? { title, message: [...duplicate, ...budget].join('\n'), confirmLabel: '그래도 승인' }
         : { title: '승인할까요?', message: `${payerAmount}을 돌려줄 돈으로 잡아요`, confirmLabel: '승인하기' },
     )
     if (ok) await run({ type: 'approve' }, '승인했어요')

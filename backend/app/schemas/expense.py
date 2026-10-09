@@ -3,6 +3,7 @@ from datetime import datetime
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
 
 from app.models.enums import ApprovalAction, CategorySource, ExpenseStatus
+from app.receipts.duplicates import DuplicateReason
 from app.schemas.common import (
     MAX_ITEMS,
     NonNegativeWon,
@@ -63,6 +64,18 @@ class BudgetWarningOut(BaseModel):
     over_by: int  # 승인하면 넘는 금액
 
 
+class DuplicateOut(BaseModel):
+    """같은 영수증으로 보이는 다른 지출 (경고만 — 막지 않음)"""
+
+    expense_id: int | None  # 내가 볼 수 있는 지출이면 id (링크용), 아니면 null
+    reason: DuplicateReason  # SAME_IMAGE 같은 파일 / SIMILAR_IMAGE 같은 사진 / SAME_DETAILS 가게·일시·합계 같음
+    store_name: str | None
+    paid_at: datetime | None
+    total_amount: int | None
+    status: ExpenseStatus
+    uploader_name: str
+
+
 class ExpenseDetail(BaseModel):
     id: int
     status: ExpenseStatus
@@ -84,6 +97,8 @@ class ExpenseDetail(BaseModel):
     can_unreimburse: bool  # 환급 완료 + 총무 → 환급 완료 취소
     # 승인 대기이고 내가 승인할 수 있을 때만 채움
     budget_warnings: list[BudgetWarningOut]
+    # 같은 영수증으로 보이는 다른 지출 (두 번 돌려주지 않게)
+    duplicates: list[DuplicateOut]
     created_at: datetime
     updated_at: datetime
 

@@ -57,13 +57,13 @@
 | Organization | name, invite_code(재발급 가능), created_by_user_id, budget_period_start/end(예산 기간, NULL=전체 누적) |
 | Membership | user, organization, role(TREASURER/APPROVER/MEMBER) |
 | Category | organization, name, budget_amount(nullable) — 계정과목 겸 예산 항목 |
-| Receipt | organization, uploader(Membership), image_path, image_hash, ocr_raw(JSON, 마스킹 후), store_name, paid_at, total_amount |
+| Receipt | organization, uploader(Membership), image_path, image_hash(sha256), image_phash(사진 지문), ocr_raw(JSON, 마스킹 후), store_name, paid_at, total_amount |
 | Expense | organization, receipt(1:1), payer(Membership), status(DRAFT/SUBMITTED/APPROVED/REJECTED), reject_reason, reimbursed_at, reimbursed_by(Membership) |
 | ExpenseItem | expense, name, quantity, unit_price, amount, category, category_source(AUTO/MANUAL) |
 | MappingRule | organization, keyword(정규화한 품목명), category, hit_count — 조직별로 배운 규칙만 (기본 규칙은 코드 `classify/defaults.py`) |
 | ApprovalLog | expense, actor(Membership), action(SUBMIT/WITHDRAW/APPROVE/UNAPPROVE/REJECT/REIMBURSE/UNREIMBURSE), comment, created_at |
 
-- 중복 감지: image_hash 유사도 또는 (store_name, paid_at, total_amount) 일치 시 경고
+- 중복 감지(경고만): 같은 파일(image_hash) / 비슷한 사진(image_phash) / (가게, 결제일시 분 단위, 합계) 일치
 - 지출 금액은 별도 컬럼 없이 품목(ExpenseItem.amount) 합계로 계산
 - 자세한 이유는 [DECISIONS](DECISIONS.md)
 
@@ -108,5 +108,5 @@
 | 3 | 실제 OCR(전처리 + PaddleOCR) + 파싱 | 완료 (시험 영수증 기준) — 실제 영수증 데이터로 정확도 측정·보강은 계속 |
 | 4 | 품목→계정 자동 분류 + 수정 학습 | 완료 (기본 키워드 + 제출 때 고친 품목 학습) |
 | 5 | 승인 흐름, 정산 엔진(환급 집계·완료), 예산 잔액 | 완료 (+ 반려 후 다시 제출, 되돌리기, 예산 기간·초과 경고) |
-| 6 | 리포트·엑셀, 중복 감지 | |
+| 6 | 리포트·엑셀, 중복 감지 | 완료 (리포트·엑셀은 총무·승인자, 중복은 경고만) |
 | 7 | 정확도 측정 스크립트, 실사용 테스트 대응 | |

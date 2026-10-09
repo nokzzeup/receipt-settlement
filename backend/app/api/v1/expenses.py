@@ -43,9 +43,11 @@ from app.ocr import OcrRawResult
 from app.parsing.rows import row_texts
 from app.receipts import storage
 from app.receipts.images import MAX_UPLOAD_BYTES, MEDIA_TYPES, detect_image_type, is_heif
+from app.receipts.duplicates import DuplicateMatch, find_duplicates
 from app.receipts.intake import create_draft_expense
 from app.schemas.expense import (
     BudgetWarningOut,
+    DuplicateOut,
     ExpenseDetail,
     ExpenseItemOut,
     ExpenseSummary,
@@ -169,6 +171,21 @@ def _budget_warnings(db: DbSession, expense: Expense) -> list[BudgetWarningOut]:
     ]
 
 
+def _duplicate_out(match: DuplicateMatch, me: Membership) -> DuplicateOut | None:
+    other = match.receipt.expense
+    if other is None:
+        return None
+    return DuplicateOut(
+        expense_id=other.id if _can_view(me, other) else None,
+        reason=match.reason,
+        store_name=match.receipt.store_name,
+        paid_at=match.receipt.paid_at,
+        total_amount=match.receipt.total_amount,
+        status=other.status,
+        uploader_name=match.receipt.uploader.user.name,
+    )
+
+
 def _detail(db: DbSession, expense: Expense, me: Membership) -> ExpenseDetail:
     is_reviewer = me.role in _REVIEWER_ROLES
     is_treasurer = me.role == MembershipRole.TREASURER
@@ -196,6 +213,7 @@ def _detail(db: DbSession, expense: Expense, me: Membership) -> ExpenseDetail:
         can_reimburse=_awaiting_reimbursement(expense) and is_treasurer,
         can_unreimburse=expense.reimbursed_at is not None and is_treasurer,
         budget_warnings=_budget_warnings(db, expense) if can_review else [],
+        duplicates=[d for m in find_duplicates(db, expense.receipt) if (d := _duplicate_out(m, me)) is not None],
         created_at=expense.created_at,
         updated_at=expense.updated_at,
     )

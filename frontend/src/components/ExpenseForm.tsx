@@ -11,6 +11,7 @@ import { categoryLook, chipStyle, tileStyle } from '../lib/categoryStyle'
 import { formatWon, fromSeoulInput, parseInteger, toSeoulInput } from '../lib/format'
 import { stagger } from '../lib/motion'
 import { BottomSheet } from './BottomSheet'
+import { DuplicateWarning } from './DuplicateWarning'
 import { Icon } from './Icon'
 import { NumberInput } from './NumberInput'
 import { OcrText } from './OcrText'
@@ -284,6 +285,8 @@ export function ExpenseForm({ orgId, expense, onSubmitted }: Props) {
             : '자동으로 채웠어요. 사진과 비교해서 틀린 곳만 고쳐주세요'}
         </p>
       )}
+
+      <DuplicateWarning orgId={orgId} duplicates={expense.duplicates} editable />
 
       <section className="card receipt-fields anim-rise" style={stagger(1)} aria-label="영수증 정보">
         <ReceiptThumb orgId={orgId} expenseId={expense.id} />

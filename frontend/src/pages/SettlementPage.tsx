@@ -2,8 +2,9 @@ import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { errorMessage } from '../api/client'
 import { useOrg, useUpdateOrg } from '../api/orgs'
+import { downloadReport, useReport } from '../api/reports'
 import { useBulkReimburse, useSettlement } from '../api/settlement'
-import type { CategoryUsage, PayerBalance, Settlement } from '../api/types'
+import type { CategoryUsage, PayerBalance, Report, Settlement } from '../api/types'
 import { BottomSheet } from '../components/BottomSheet'
 import { BudgetMeter } from '../components/BudgetMeter'
 import { CategoryTile } from '../components/CategoryTile'
@@ -14,10 +15,25 @@ import { SkeletonRows } from '../components/SkeletonRows'
 import { useFeedback } from '../feedback/context'
 import { useCountUp } from '../hooks/useCountUp'
 import { useOrgId } from '../hooks/useOrgId'
-import { currentSemester, formatNumber, formatPeriod, formatShortDay, formatWon, seoulToday } from '../lib/format'
+import { categoryLook } from '../lib/categoryStyle'
+import {
+  currentSemester,
+  formatNumber,
+  formatPeriod,
+  formatShortDay,
+  formatWon,
+  monthRange,
+  seoulToday,
+} from '../lib/format'
 import { stagger } from '../lib/motion'
 
-type Tab = 'payers' | 'budget'
+type Tab = 'payers' | 'budget' | 'report'
+
+const SUBTITLES: Record<Tab, string> = {
+  payers: '승인된 지출을 결제한 사람에게 돌려줘요',
+  budget: '계정과목별로 얼마 썼고 얼마 남았는지 봐요',
+  report: '기간을 골라 계정과목별·사람별로 보고 엑셀로 받아요',
+}
 
 const initialOf = (name: string) => name.trim().slice(0, 1) || '?'
 
@@ -27,27 +43,28 @@ export function SettlementPage() {
   const org = useOrg(orgId)
   const settlement = useSettlement(orgId)
   const [params, setParams] = useSearchParams()
-  const tab: Tab = params.get('tab') === 'budget' ? 'budget' : 'payers'
-  const isTreasurer = org.data?.my_role === 'TREASURER'
+  const role = org.data?.my_role
+  const isTreasurer = role === 'TREASURER'
+  const isReviewer = role === 'TREASURER' || role === 'APPROVER' // 리포트는 총무·승인자만
+  const requested = params.get('tab')
+  const tab: Tab = requested === 'budget' ? 'budget' : requested === 'report' && isReviewer ? 'report' : 'payers'
   const data = settlement.data
 
   return (
     <>
       <div className="topbar-spacer" aria-hidden="true" />
       <div className="screen screen--with-tabbar">
-        <LargeTitle
-          title="정산"
-          subtitle={tab === 'payers' ? '승인된 지출을 결제한 사람에게 돌려줘요' : '계정과목별로 얼마 썼고 얼마 남았는지 봐요'}
-        />
+        <LargeTitle title="정산" subtitle={SUBTITLES[tab]} />
         <div className="anim-rise" style={stagger(1)}>
-          <SegmentedTabs
+          <SegmentedTabs<Tab>
             label="정산 보기"
             segments={[
               { key: 'payers', label: '돌려줄 돈' },
               { key: 'budget', label: '예산' },
+              ...(isReviewer ? [{ key: 'report' as const, label: '리포트' }] : []),
             ]}
             value={tab}
-            onChange={(key) => setParams(key === 'budget' ? { tab: 'budget' } : {}, { replace: true })}
+            onChange={(key) => setParams(key === 'payers' ? {} : { tab: key }, { replace: true })}
           />
         </div>
 
@@ -57,12 +74,11 @@ export function SettlementPage() {
           </section>
         )}
         {settlement.isError && <p className="message message--error">{errorMessage(settlement.error)}</p>}
-        {data &&
-          (tab === 'payers' ? (
-            <PayersView key="payers" orgId={orgId} data={data} isTreasurer={isTreasurer} />
-          ) : (
-            <BudgetView key="budget" orgId={orgId} data={data} isTreasurer={isTreasurer} />
-          ))}
+        {data && tab === 'payers' && <PayersView key="payers" orgId={orgId} data={data} isTreasurer={isTreasurer} />}
+        {data && tab === 'budget' && <BudgetView key="budget" orgId={orgId} data={data} isTreasurer={isTreasurer} />}
+        {data && tab === 'report' && (
+          <ReportView key="report" orgId={orgId} orgName={org.data?.name ?? '조직'} period={data.period} />
+        )}
       </div>
     </>
   )
@@ -426,5 +442,189 @@ function PeriodSheet({
         </button>
       </div>
     </BottomSheet>
+  )
+}
+
+// ---------- 리포트 ----------
+
+function ReportView({ orgId, orgName, period }: { orgId: number; orgName: string; period: Settlement['period'] }) {
+  const { toast } = useFeedback()
+  const thisMonth = monthRange(0)
+  const [range, setRange] = useState(period ?? thisMonth)
+  const [downloading, setDownloading] = useState(false)
+  const valid = Boolean(range.start && range.end && range.start <= range.end)
+  const report = useReport(orgId, range.start, range.end, valid)
+  const year = seoulToday().slice(0, 4)
+
+  const presets = [
+    { label: '이번 달', value: thisMonth },
+    { label: '지난달', value: monthRange(-1) },
+    ...(period ? [{ label: '예산 기간', value: period }] : []),
+    { label: '올해', value: { start: `${year}-01-01`, end: `${year}-12-31` } },
+  ]
+
+  async function download() {
+    setDownloading(true)
+    try {
+      const compact = (d: string) => d.replaceAll('-', '')
+      await downloadReport(orgId, range.start, range.end, `${orgName} 지출결산 ${compact(range.start)}-${compact(range.end)}.xlsx`)
+      toast('엑셀 파일을 받았어요')
+    } catch (error) {
+      toast(errorMessage(error))
+    } finally {
+      setDownloading(false)
+    }
+  }
+
+  return (
+    <>
+      <section className="card anim-rise" style={stagger(2)} aria-label="리포트 기간">
+        <div className="reason-chips">
+          {presets.map((preset) => {
+            const active = preset.value.start === range.start && preset.value.end === range.end
+            return (
+              <button
+                key={preset.label}
+                type="button"
+                className="reason-chip press"
+                aria-pressed={active}
+                style={active ? { background: 'var(--primary-weak)', color: 'var(--primary-text)' } : undefined}
+                onClick={() => setRange(preset.value)}
+              >
+                {preset.label}
+              </button>
+            )
+          })}
+        </div>
+        <div className="period-inputs">
+          <label className="field">
+            <span className="field__label">시작일</span>
+            <input
+              className="input"
+              type="date"
+              value={range.start}
+              onChange={(e) => setRange((r) => ({ ...r, start: e.target.value }))}
+            />
+          </label>
+          <label className="field">
+            <span className="field__label">끝일</span>
+            <input
+              className="input"
+              type="date"
+              value={range.end}
+              onChange={(e) => setRange((r) => ({ ...r, end: e.target.value }))}
+            />
+          </label>
+        </div>
+        {!valid && (
+          <p className="message message--error" style={{ marginTop: 10 }}>
+            <Icon name="alert" size={18} />
+            시작일이 끝일보다 늦어요
+          </p>
+        )}
+      </section>
+
+      {report.isPending && valid && (
+        <section className="card card--list">
+          <SkeletonRows count={3} />
+        </section>
+      )}
+      {report.isError && <p className="message message--error">{errorMessage(report.error)}</p>}
+      {report.data && <ReportBody key={`${range.start}~${range.end}`} report={report.data} />}
+
+      <button
+        type="button"
+        className="btn btn--primary btn--block anim-rise"
+        style={stagger(5)}
+        onClick={download}
+        disabled={!valid || downloading}
+      >
+        <Icon name="download" size={20} />
+        {downloading ? '만드는 중…' : '엑셀로 받기'}
+      </button>
+      <p className="caption" style={{ textAlign: 'center', marginTop: -4 }}>
+        요약(계정과목별·사람별) + 지출 내역(품목 한 줄씩) 두 시트
+      </p>
+    </>
+  )
+}
+
+function ReportBody({ report }: { report: Report }) {
+  const approved = useCountUp(report.approved_amount)
+  const total = Math.max(report.approved_amount, 1)
+  const parts = report.categories
+    .filter((c) => c.amount > 0)
+    .map((c) => ({ ...c, color: categoryLook(c.category_id === null ? null : { id: c.category_id, name: c.name }).fg }))
+
+  return (
+    <>
+      <section className="card anim-rise" style={stagger(3)} aria-label="리포트 합계">
+        <p style={{ color: 'var(--text-2)', fontSize: 15, fontWeight: 600 }}>승인된 지출 {report.approved_count}건</p>
+        <p className="big-number" style={{ marginTop: 8 }}>
+          {formatNumber(approved)}원
+        </p>
+        <div className="budget-row__foot" style={{ marginTop: 10, fontSize: 14 }}>
+          <span>돌려준 돈 {formatWon(report.reimbursed_amount)}</span>
+          <span>아직 {formatWon(report.unreimbursed_amount)}</span>
+        </div>
+        {report.awaiting_count > 0 && (
+          <p className="caption" style={{ marginTop: 8 }}>
+            승인 대기 {report.awaiting_count}건 · {formatWon(report.awaiting_amount)}은 빠져 있어요
+          </p>
+        )}
+        {parts.length > 0 && (
+          <>
+            <div className="split__bar" aria-hidden="true">
+              {parts.map((part) => (
+                <span key={part.category_id ?? 'none'} style={{ width: `${(part.amount / total) * 100}%`, background: part.color }} />
+              ))}
+            </div>
+            <ul className="split__legend">
+              {report.categories.map((c) => (
+                <li key={c.category_id ?? 'none'}>
+                  <span
+                    className="split__dot"
+                    style={{ background: categoryLook(c.category_id === null ? null : { id: c.category_id, name: c.name }).fg }}
+                  />
+                  <span style={{ flex: 1, color: 'var(--text-2)' }}>
+                    {c.name} <span className="caption">· 품목 {c.item_count}개</span>
+                  </span>
+                  <span className="amount" style={{ fontWeight: 600 }}>
+                    {formatWon(c.amount)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </section>
+
+      <section className="card card--list anim-rise" style={stagger(4)} aria-label="사람별 리포트">
+        <div className="card__head">
+          <h2 className="card__title">사람별</h2>
+        </div>
+        <div className="rows" style={{ marginTop: 6 }}>
+          {report.payers.length === 0 && (
+            <p className="caption" style={{ padding: '6px 8px 12px' }}>
+              이 기간에 승인된 지출이 없어요
+            </p>
+          )}
+          {report.payers.map((p) => (
+            <div key={p.payer.membership_id} className="row-item">
+              <span className="tile tile--md tile--round" style={{ fontSize: 15 }}>
+                {initialOf(p.payer.name)}
+              </span>
+              <span className="row-item__main">
+                <span className="row-item__title">{p.payer.name}</span>
+                <span className="row-item__sub">
+                  지출 {p.expense_count}건{p.unreimbursed > 0 ? ` · 아직 ${formatWon(p.unreimbursed)}` : ' · 다 돌려줌'}
+                </span>
+              </span>
+              <span className="amount">{formatWon(p.amount)}</span>
+            </div>
+          ))}
+        </div>
+      </section>
+    </>
   )
 }

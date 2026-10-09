@@ -213,15 +213,16 @@ npm run ocr:eval -- --refresh   # 전처리·엔진 설정을 바꿨을 때 (OCR
 │   │   ├── web.py            공용 서버 모드에서 빌드된 화면을 같이 내보내기
 │   │   ├── ops/              운영 도구 — DB 백업, 정확도 측정(evaluate.py)
 │   │   ├── core/             설정(config.py), 시간대(timezone.py)
-│   │   ├── api/              라우터 — v1/*.py (auth, orgs, categories, expenses), deps.py(권한)  (이성민)
+│   │   ├── api/              라우터 — v1/*.py (auth, orgs, categories, expenses, settlement, reports), deps.py(권한) (이성민)
 │   │   ├── schemas/          API 요청·응답 스키마 (바뀌면 프론트 gen:api)          (이성민)
-│   │   ├── receipts/         영수증 접수: 이미지 검증·저장, 카드번호 마스킹, OCR 호출  (이성민)
+│   │   ├── receipts/         영수증 접수: 이미지 검증·저장, 카드번호 마스킹, OCR 호출, 중복 감지 (이성민)
 │   │   ├── db/               Base, 세션, 커스텀 타입, migrations/ (Alembic)     (김도현)
 │   │   ├── models/           도메인 모델 9개                                      (김도현)
 │   │   ├── ocr/              엔진 인터페이스, Mock·PaddleOCR 엔진, 전처리, 자가 진단 (김도현)
 │   │   ├── parsing/          ReceiptFields 스키마 + parse() (규칙 기반), 행 묶기    (이성민)
 │   │   ├── classify/         품목 → 계정과목 자동 분류·학습 (4단계), 기본 계정과목  (이성민)
-│   │   └── settlement/       정산 엔진: 환급 집계·예산 잔액 (5단계)                (이성민)
+│   │   ├── settlement/       정산 엔진: 환급 집계·예산 잔액 (5단계)                (이성민)
+│   │   └── reports/          기간별 리포트·엑셀 (6단계)                            (이성민)
 │   └── tests/
 ├── frontend/                 React PWA                                              (신율겸)
 │   └── src/
@@ -239,7 +240,7 @@ npm run ocr:eval -- --refresh   # 전처리·엔진 설정을 바꿨을 때 (OCR
 ### 이성민 — 백엔드 API · 파싱 · 분류 · 정산
 - `backend/app/api/v1/` — 1·2단계 완료. 조직 안 API는 `api/deps.py`의 `CurrentMembership`(멤버 아니면 404) / `require_roles(...)`(역할 아니면 403)를 반드시 거친다
 - `backend/app/parsing/parser.py` — 실제 PaddleOCR 출력으로 보강함. 실제 영수증 데이터가 모이면 `npm run ocr:eval -- -v`로 틀린 곳을 보고 규칙 수정 → 점수가 오를 때만 반영. 고친 사례는 `tests/fixtures/paddle/`처럼 샘플로 남겨 회귀 테스트
-- `classify/` — 4단계 완료: 업로드 때 품목 자동 분류(`receipts/intake.py`), 제출 때 고친 품목 학습. 기본 키워드는 `classify/defaults.py` — 실제 영수증에서 미분류로 남는 품목을 보고 추가 (`tests/test_classify.py`에 사례도 같이). `settlement/` — 5단계 완료: 계산은 `settlement/engine.py`(순수 함수, `tests/test_settlement_engine.py`), API는 `api/v1/settlement.py`·`expenses.py`(승인·반려·환급). 규칙을 바꾸면 테스트부터
+- `classify/` — 4단계 완료: 업로드 때 품목 자동 분류(`receipts/intake.py`), 제출 때 고친 품목 학습. 기본 키워드는 `classify/defaults.py` — 실제 영수증에서 미분류로 남는 품목을 보고 추가 (`tests/test_classify.py`에 사례도 같이). `settlement/` — 5단계 완료: 계산은 `settlement/engine.py`(순수 함수, `tests/test_settlement_engine.py`), API는 `api/v1/settlement.py`·`expenses.py`(승인·반려·환급). 규칙을 바꾸면 테스트부터. `reports/` — 6단계: 기간별 리포트 계산(`summary.py`)·엑셀(`excel.py`), 중복 감지는 `receipts/duplicates.py`·`fingerprint.py`
 
 ### 김도현 — DB · OCR · 데이터셋
 - **먼저 `npm run setup:ocr`** (위 "실제 OCR"). 엔진은 `backend/app/ocr/paddle.py`(설정 근거 주석), 전처리는 `preprocess.py`

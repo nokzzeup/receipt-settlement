@@ -4,6 +4,7 @@ import { useCategories } from '../api/categories'
 import { errorMessage } from '../api/client'
 import { useExpense } from '../api/expenses'
 import type { Category, ExpenseDetail } from '../api/types'
+import { DuplicateWarning } from '../components/DuplicateWarning'
 import { ExpenseActions } from '../components/ExpenseActions'
 import { ExpenseForm } from '../components/ExpenseForm'
 import { HistoryList } from '../components/HistoryList'
@@ -121,6 +122,8 @@ function ExpenseReadOnly({ orgId, expense, categories }: ReadOnlyProps) {
           반려 사유: {expense.reject_reason}
         </p>
       )}
+
+      <DuplicateWarning orgId={orgId} duplicates={expense.duplicates} editable={false} />
 
       <section className="card receipt-fields anim-rise" style={stagger(1)} aria-label="영수증 정보">
         <ReceiptThumb orgId={orgId} expenseId={expense.id} />

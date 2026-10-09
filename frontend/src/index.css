@@ -2024,6 +2024,19 @@ button.row-item:active:not(:disabled) {
   gap: 0 8px;
 }
 
+.dup-line {
+  display: block;
+  margin-top: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+a.dup-line {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 /* ---------- 예산 막대 ---------- */
 .meter {
   display: flex;

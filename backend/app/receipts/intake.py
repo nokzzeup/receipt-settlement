@@ -15,6 +15,7 @@ from app.classify import classify_names
 from app.models import CategorySource, Expense, ExpenseItem, ExpenseStatus, Membership, Receipt
 from app.ocr import OcrEngine, OcrRawResult
 from app.parsing import ReceiptFields, ReceiptItem, parse
+from app.receipts.fingerprint import perceptual_hash
 from app.receipts.images import ImageType
 from app.receipts.masking import mask_ocr_result
 from app.receipts.storage import delete_image, save_receipt_image
@@ -91,6 +92,7 @@ def create_draft_expense(
             uploader_membership_id=uploader.id,
             image_path=relative_path,
             image_hash=hashlib.sha256(image_bytes).hexdigest(),
+            image_phash=perceptual_hash(image_bytes),
             ocr_raw=recognized.raw.model_dump(mode="json") if recognized.raw else None,
             store_name=fields.store_name,
             paid_at=fields.paid_at,

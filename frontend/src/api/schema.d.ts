@@ -485,6 +485,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/orgs/{org_id}/reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Report */
+        get: operations["get_report_api_v1_orgs__org_id__reports_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{org_id}/reports/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export Report
+         * @description 리포트 엑셀 파일 (시트: 요약 / 지출 내역 — 품목 한 줄씩)
+         */
+        get: operations["export_report_api_v1_orgs__org_id__reports_export_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -603,6 +640,29 @@ export interface components {
             remaining: number | null;
             state: components["schemas"]["BudgetState"];
         };
+        /**
+         * DuplicateOut
+         * @description 같은 영수증으로 보이는 다른 지출 (경고만 — 막지 않음)
+         */
+        DuplicateOut: {
+            /** Expense Id */
+            expense_id: number | null;
+            reason: components["schemas"]["DuplicateReason"];
+            /** Store Name */
+            store_name: string | null;
+            /** Paid At */
+            paid_at: string | null;
+            /** Total Amount */
+            total_amount: number | null;
+            status: components["schemas"]["ExpenseStatus"];
+            /** Uploader Name */
+            uploader_name: string;
+        };
+        /**
+         * DuplicateReason
+         * @enum {string}
+         */
+        DuplicateReason: "SAME_IMAGE" | "SIMILAR_IMAGE" | "SAME_DETAILS";
         /** ExpenseDetail */
         ExpenseDetail: {
             /** Id */
@@ -636,6 +696,8 @@ export interface components {
             can_unreimburse: boolean;
             /** Budget Warnings */
             budget_warnings: components["schemas"]["BudgetWarningOut"][];
+            /** Duplicates */
+            duplicates: components["schemas"]["DuplicateOut"][];
             /**
              * Created At
              * Format: date-time
@@ -921,6 +983,63 @@ export interface components {
              * @description 반려 사유 (올린 사람에게 보임)
              */
             reason: string;
+        };
+        /** ReportCategoryOut */
+        ReportCategoryOut: {
+            /** Category Id */
+            category_id: number | null;
+            /** Name */
+            name: string;
+            /** Amount */
+            amount: number;
+            /** Item Count */
+            item_count: number;
+            /** Budget */
+            budget: number | null;
+        };
+        /**
+         * ReportOut
+         * @description 기간별 리포트: 결제일이 기간 안(한국 날짜, 양 끝 포함)이고 승인된 지출
+         */
+        ReportOut: {
+            /**
+             * Start
+             * Format: date
+             */
+            start: string;
+            /**
+             * End
+             * Format: date
+             */
+            end: string;
+            /** Approved Count */
+            approved_count: number;
+            /** Approved Amount */
+            approved_amount: number;
+            /** Reimbursed Amount */
+            reimbursed_amount: number;
+            /** Unreimbursed Amount */
+            unreimbursed_amount: number;
+            /** Awaiting Count */
+            awaiting_count: number;
+            /** Awaiting Amount */
+            awaiting_amount: number;
+            /** Categories */
+            categories: components["schemas"]["ReportCategoryOut"][];
+            /** Payers */
+            payers: components["schemas"]["ReportPayerOut"][];
+        };
+        /** ReportPayerOut */
+        ReportPayerOut: {
+            payer: components["schemas"]["PersonOut"];
+            /** Amount */
+            amount: number;
+            /** Reimbursed */
+            reimbursed: number;
+            /** Unreimbursed */
+            unreimbursed: number;
+            /** Expense Count */
+            expense_count: number;
         };
         /**
          * ReviewRequest
@@ -2054,6 +2173,80 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BulkReimburseResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_report_api_v1_orgs__org_id__reports_get: {
+        parameters: {
+            query: {
+                /** @description 시작일 (결제일 기준, 포함) */
+                start: string;
+                /** @description 끝일 (포함) */
+                end: string;
+            };
+            header?: never;
+            path: {
+                /** @description 조직 id */
+                org_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    export_report_api_v1_orgs__org_id__reports_export_get: {
+        parameters: {
+            query: {
+                /** @description 시작일 (결제일 기준, 포함) */
+                start: string;
+                /** @description 끝일 (포함) */
+                end: string;
+            };
+            header?: never;
+            path: {
+                /** @description 조직 id */
+                org_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 엑셀 파일 (요약 + 지출 내역) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": unknown;
                 };
             };
             /** @description Validation Error */

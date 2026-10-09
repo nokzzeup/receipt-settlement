@@ -114,3 +114,12 @@ export function currentSemester(now: Date = new Date()): { start: string; end: s
   const startYear = month >= 9 ? year : year - 1
   return { start: `${startYear}-09-01`, end: `${startYear + 1}-02-${pad(lastDayOfFeb(startYear + 1))}` }
 }
+
+/** 한국 날짜 기준 달의 첫날·마지막 날. offset 0 = 이번 달, -1 = 지난달 */
+export function monthRange(offset = 0, now: Date = new Date()): { start: string; end: string } {
+  const [year, month] = seoulToday(now).split('-').map(Number)
+  const first = new Date(Date.UTC(year, month - 1 + offset, 1))
+  const last = new Date(Date.UTC(first.getUTCFullYear(), first.getUTCMonth() + 1, 0))
+  const iso = (d: Date) => d.toISOString().slice(0, 10)
+  return { start: iso(first), end: iso(last) }
+}

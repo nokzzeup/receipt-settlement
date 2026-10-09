@@ -27,8 +27,12 @@ class Receipt(TimestampMixin, Base):
     uploader_membership_id: Mapped[int] = mapped_column(ForeignKey("memberships.id"))
     # settings.storage_path 기준 상대경로
     image_path: Mapped[str] = mapped_column(String(500))
-    # 중복 감지용 해시. 알고리즘(정확 일치 sha256 / 유사도 pHash)은 6단계에서 결정 → 64자면 둘 다 수용
+    # 중복 감지 (app/receipts/duplicates.py)
+    # - image_hash: 파일 sha256 → 완전히 같은 파일
+    # - image_phash: 사진 지문(256비트 dHash, 16진수 64자) → 다시 저장·크기 조절·메신저로 보낸 같은 사진.
+    #   사진을 못 읽으면 NULL (6단계 전에 올린 영수증도 NULL → 같은 파일·같은 내용으로만 비교)
     image_hash: Mapped[str] = mapped_column(String(64), index=True)
+    image_phash: Mapped[str | None] = mapped_column(String(64))
     # OcrRawResult JSON. 저장 전에 카드번호 패턴을 반드시 마스킹할 것
     ocr_raw: Mapped[dict[str, Any] | None] = mapped_column(JSON)
 

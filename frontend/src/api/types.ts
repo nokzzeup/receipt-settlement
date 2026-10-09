@@ -27,6 +27,9 @@ export type Settlement = S['SettlementOut']
 export type PayerBalance = S['PayerBalanceOut']
 export type CategoryUsage = S['CategoryUsageOut']
 export type BudgetState = S['BudgetState']
+export type Duplicate = S['DuplicateOut']
+export type DuplicateReason = S['DuplicateReason']
+export type Report = S['ReportOut']
 
 export const ROLE_LABELS: Record<MembershipRole, string> = {
   TREASURER: '총무',
