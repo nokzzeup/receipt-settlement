@@ -3,7 +3,9 @@ import { Navigate, useLocation, useNavigate } from 'react-router'
 import { useLogin, useSignup } from '../api/auth'
 import { errorMessage } from '../api/client'
 import { getToken } from '../auth/token'
-import { Page } from '../components/Page'
+import { Icon } from '../components/Icon'
+import { SegmentedTabs } from '../components/SegmentedTabs'
+import { stagger } from '../lib/motion'
 
 type Mode = 'login' | 'signup'
 
@@ -22,6 +24,7 @@ export function LoginPage() {
   const signup = useSignup()
   const pending = login.isPending || signup.isPending
   const serverError = mode === 'login' ? login.error : signup.error
+  const message = formError ?? (serverError ? errorMessage(serverError) : null)
 
   if (getToken()) return <Navigate to="/orgs" replace />
 
@@ -47,24 +50,48 @@ export function LoginPage() {
   }
 
   return (
-    <Page title={mode === 'login' ? '로그인' : '회원가입'}>
-      <div className="tabs" role="tablist">
-        <button type="button" role="tab" aria-selected={mode === 'login'} className="tabs__item" onClick={() => switchMode('login')}>
-          로그인
-        </button>
-        <button type="button" role="tab" aria-selected={mode === 'signup'} className="tabs__item" onClick={() => switchMode('signup')}>
-          회원가입
-        </button>
+    <div className="auth">
+      <div className="auth__brand anim-rise">
+        <span className="auth__logo anim-pop">
+          <Icon name="receipt" size={30} weight={2} />
+        </span>
+        <h1>
+          영수증 찍으면
+          <br />
+          정산까지 한 번에
+        </h1>
+        <p>법인카드 없는 학생회·동아리를 위한 지출 정산</p>
       </div>
 
-      <form className="stack" onSubmit={handleSubmit}>
+      <div className="anim-rise" style={stagger(1)}>
+        <SegmentedTabs
+          label="로그인 또는 회원가입"
+          segments={[
+            { key: 'login', label: '로그인' },
+            { key: 'signup', label: '회원가입' },
+          ]}
+          value={mode}
+          onChange={switchMode}
+        />
+      </div>
+
+      <form className="form-stack anim-rise" style={stagger(2)} onSubmit={handleSubmit}>
         {mode === 'signup' && (
-          <input className="input" placeholder="이름" value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" required />
+          <input
+            className="input anim-fade"
+            placeholder="이름"
+            aria-label="이름"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            autoComplete="name"
+            required
+          />
         )}
         <input
           className="input"
           type="email"
           placeholder="이메일"
+          aria-label="이메일"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           autoComplete="email"
@@ -74,16 +101,22 @@ export function LoginPage() {
           className="input"
           type="password"
           placeholder={mode === 'signup' ? '비밀번호 (8자 이상)' : '비밀번호'}
+          aria-label="비밀번호"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
           required
         />
-        {(formError || serverError) && <p className="error">{formError ?? errorMessage(serverError)}</p>}
-        <button className="button button--primary" type="submit" disabled={pending}>
+        {message && (
+          <p key={message} className="message message--error anim-rise" role="alert">
+            <Icon name="alert" size={18} />
+            {message}
+          </p>
+        )}
+        <button className="btn btn--primary btn--block" type="submit" disabled={pending} style={{ marginTop: 6 }}>
           {pending ? '처리 중…' : mode === 'login' ? '로그인' : '가입하고 시작하기'}
         </button>
       </form>
-    </Page>
+    </div>
   )
 }

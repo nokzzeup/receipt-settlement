@@ -188,10 +188,20 @@ def list_expenses(org_id: int, me: CurrentMembership, db: DbSession) -> list[Exp
         .correlate(Expense)
         .scalar_subquery()
     )
+    # 금액 합이 가장 큰 계정과목 (같으면 id가 작은 쪽). 할인(음수) 줄도 합에 포함
+    main_category = (
+        select(ExpenseItem.category_id)
+        .where(ExpenseItem.expense_id == Expense.id, ExpenseItem.category_id.is_not(None))
+        .group_by(ExpenseItem.category_id)
+        .order_by(func.sum(ExpenseItem.amount).desc(), ExpenseItem.category_id)
+        .limit(1)
+        .correlate(Expense)
+        .scalar_subquery()
+    )
     payer = aliased(Membership)
     payer_user = aliased(User)
     query = (
-        select(Expense, Receipt, payer.id, payer_user.name, item_sum, item_count, uncategorized)
+        select(Expense, Receipt, payer.id, payer_user.name, item_sum, item_count, uncategorized, main_category)
         .join(Receipt, Receipt.id == Expense.receipt_id)
         .join(payer, payer.id == Expense.payer_membership_id)
         .join(payer_user, payer_user.id == payer.user_id)
@@ -209,11 +219,14 @@ def list_expenses(org_id: int, me: CurrentMembership, db: DbSession) -> list[Exp
             amount=amount,
             item_count=count,
             uncategorized_count=uncategorized_count,
+            main_category_id=main_category_id,
             payer=PersonOut(membership_id=payer_id, name=payer_name),
             reimbursed_at=expense.reimbursed_at,
             created_at=expense.created_at,
         )
-        for expense, receipt, payer_id, payer_name, amount, count, uncategorized_count in db.execute(query)
+        for expense, receipt, payer_id, payer_name, amount, count, uncategorized_count, main_category_id in db.execute(
+            query
+        )
     ]
 
 

@@ -22,8 +22,9 @@ export default defineConfig(({ mode }) => {
           short_name: '정산',
           description: '법인카드 없는 조직을 위한 영수증 기반 지출 정산',
           lang: 'ko',
-          theme_color: '#0f766e',
-          background_color: '#ffffff',
+          // 상단 상태 표시줄이 화면 바탕(회색)과 이어지게
+          theme_color: '#f2f4f6',
+          background_color: '#f2f4f6',
           display: 'standalone',
           start_url: '/',
           icons: [

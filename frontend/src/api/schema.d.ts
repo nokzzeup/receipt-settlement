@@ -467,6 +467,8 @@ export interface components {
             item_count: number;
             /** Uncategorized Count */
             uncategorized_count: number;
+            /** Main Category Id */
+            main_category_id: number | null;
             payer: components["schemas"]["PersonOut"];
             /** Reimbursed At */
             reimbursed_at: string | null;

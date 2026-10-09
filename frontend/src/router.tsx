@@ -1,9 +1,10 @@
-import { createBrowserRouter, Navigate } from 'react-router'
+import { createBrowserRouter } from 'react-router'
 import { HomeRedirect, RequireAuth } from './components/RequireAuth'
 import { OrgLayout } from './layouts/OrgLayout'
 import { RootLayout } from './layouts/RootLayout'
 import { ExpenseDetailPage } from './pages/ExpenseDetailPage'
 import { ExpenseListPage } from './pages/ExpenseListPage'
+import { HomePage } from './pages/HomePage'
 import { LoginPage } from './pages/LoginPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import { OrgSelectPage } from './pages/OrgSelectPage'
@@ -15,7 +16,8 @@ import { SettlementPage } from './pages/SettlementPage'
  * 화면 경로 (/login 외에는 전부 로그인 필요)
  *   /login                                   로그인 · 회원가입
  *   /orgs                                    조직 선택 · 생성 · 초대 코드 참여
- *   /orgs/:orgId/expenses                    지출 목록
+ *   /orgs/:orgId                             조직 홈 (돌려받을 돈 · 할 일 · 최근 지출)
+ *   /orgs/:orgId/expenses                    지출 목록 (?filter=DRAFT|SUBMITTED|APPROVED|REJECTED)
  *   /orgs/:orgId/expenses/:expenseId         지출 상세 (작성 중이면 인식 결과 확인·수정)
  *   /orgs/:orgId/receipts/new                영수증 촬영 → 업로드하면 지출 상세로 이동
  *   /orgs/:orgId/settlement                  정산 현황
@@ -36,7 +38,7 @@ export const router = createBrowserRouter([
             path: 'orgs/:orgId',
             element: <OrgLayout />,
             children: [
-              { index: true, element: <Navigate to="expenses" replace /> },
+              { index: true, element: <HomePage /> },
               { path: 'expenses', element: <ExpenseListPage /> },
               { path: 'expenses/:expenseId', element: <ExpenseDetailPage /> },
               { path: 'receipts/new', element: <ReceiptCapturePage /> },

@@ -1,19 +1,32 @@
 import type { ReactNode } from 'react'
 
+type LargeTitleProps = {
+  title: string
+  subtitle?: ReactNode
+}
+
+/** 화면 위쪽 큰 제목 (+ 설명 한 줄) */
+export function LargeTitle({ title, subtitle }: LargeTitleProps) {
+  return (
+    <div className="large-title anim-rise">
+      <h1>{title}</h1>
+      {subtitle && <p>{subtitle}</p>}
+    </div>
+  )
+}
+
 type PageProps = {
   title: string
-  /** 아직 안 만든 부분 메모 (빈 화면 단계용) */
-  todo?: string
+  subtitle?: ReactNode
   children?: ReactNode
 }
 
-/** 화면 공통 틀: 제목 + (임시) TODO 메모 + 내용 */
-export function Page({ title, todo, children }: PageProps) {
+/** 단순한 화면 틀 (오류·빈 화면 등): 위 여백 + 큰 제목 + 내용 */
+export function Page({ title, subtitle, children }: PageProps) {
   return (
-    <section className="page">
-      <h1 className="page__title">{title}</h1>
-      {todo && <p className="page__todo">{todo}</p>}
+    <div className="screen" style={{ paddingTop: 56 }}>
+      <LargeTitle title={title} subtitle={subtitle} />
       {children}
-    </section>
+    </div>
   )
 }

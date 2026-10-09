@@ -59,6 +59,8 @@ class ExpenseSummary(BaseModel):
     amount: int
     item_count: int
     uncategorized_count: int  # 계정과목을 안 정한 품목 수
+    # 품목 금액 합이 가장 큰 계정과목 (목록 아이콘용). 계정과목을 정한 품목이 없으면 None
+    main_category_id: int | None
     payer: PersonOut
     reimbursed_at: datetime | None
     created_at: datetime

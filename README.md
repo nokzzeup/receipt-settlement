@@ -250,8 +250,9 @@ npm run ocr:eval -- --refresh   # 전처리·엔진 설정을 바꿨을 때 (OCR
 - `backend/app/models/` — 모델 수정하면 `npm run db:revision "설명"` → 생성 파일 검토 → `npm run db:check`
 
 ### 신율겸 — 프론트 PWA
-- 동작하는 화면: 로그인, 조직 선택, 조직 설정(초대 코드·역할·계정과목), 지출 목록, 영수증 촬영, 지출 확인·수정(`ExpenseDetailPage` + `components/ExpenseForm.tsx`). 남은 화면: 정산 현황(5단계)
-- 디자인은 `frontend/src/index.css` — 색·간격 변수(`:root`) 바꾸면 전체 반영. 화면 구조는 그대로 두고 스타일만 바꿔도 됨
+- 동작하는 화면: 로그인, 조직 선택, 홈(`HomePage`), 지출 목록(상태별 거르기), 영수증 찍기(→ 인식 중 스캔 화면), 지출 확인·수정(`ExpenseDetailPage` + `components/ExpenseForm.tsx`, 계정 고르기 시트·제출 완료 화면), 설정(초대 코드·계정과목·구성원 역할). 남은 화면: 정산(5단계, 지금은 안내 화면)
+- 디자인 기준: `docs/DECISIONS.md`의 "화면 디자인". 색·모양·모션은 `frontend/src/index.css` 맨 위 변수(`:root`)만 바꾸면 전체 반영
+- 공통 부품: `components/` — `Icon`(선 아이콘), `BottomSheet`, `SegmentedTabs`, `ExpenseRow`, `CategoryTile`, `NumberInput`(쉼표 표시), `TopBar` / 알림·확인 창: `useFeedback()`(`feedback/`) / 순서대로 떠오르기: `className="anim-rise" style={stagger(n)}`
 - `frontend/vite.config.ts` — PWA 앱 이름·색, `frontend/public/` 아이콘 교체
 - API 호출은 `src/api/client.ts`의 `api.GET/POST(...)` + `unwrap()` + TanStack Query 훅 (`src/api/expenses.ts`가 예시). 로그인 토큰은 자동으로 붙고, 401이면 로그인 화면으로 이동
 - 백엔드 API가 바뀌면 `npm run gen:api` (백엔드 켜둔 상태) → `src/api/schema.d.ts` 갱신

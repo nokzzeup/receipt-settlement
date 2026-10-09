@@ -154,6 +154,7 @@ def test_members_see_only_their_own_expenses(client: TestClient, team: dict) -> 
     assert summary["amount"] == 8900
     assert summary["item_count"] == 2
     assert summary["uncategorized_count"] == 0
+    assert summary["main_category_id"] == team["category_ids"][2]  # A4용지 6,500 > 생수 2,400
 
     outsider = signup(client, "outsider@example.com")
     assert client.get(url(team), headers=outsider).status_code == 404
@@ -289,3 +290,25 @@ def test_delete_draft_removes_receipt_and_image(
     assert db_session.get(Expense, expense["id"]) is None
     assert db_session.get(Receipt, expense["receipt"]["id"]) is None
     assert list(folder.iterdir()) == []
+
+
+def test_list_main_category_is_the_largest_by_amount(client: TestClient, team: dict) -> None:
+    expense = upload_receipt(client, team["alice"], team["org_id"]).json()
+    food, snack, office = team["category_ids"][0], team["category_ids"][1], team["category_ids"][2]
+    body = valid_body(team)
+
+    # 계정과목을 정한 품목이 없으면 None
+    body["items"] = [{**item, "category_id": None} for item in body["items"]]
+    client.put(url(team, expense["id"]), json=body, headers=team["alice"])
+    assert client.get(url(team), headers=team["alice"]).json()[0]["main_category_id"] is None
+
+    # 품목 하나하나가 아니라 계정과목별 합으로 비교 (간식 3,000 + 3,000 > 비품 5,000), 할인(음수)도 합에 포함
+    body["items"] = [
+        {"name": "음료", "quantity": 1, "amount": 3000, "category_id": snack},
+        {"name": "과자", "quantity": 1, "amount": 3000, "category_id": snack},
+        {"name": "A4용지", "quantity": 1, "amount": 5000, "category_id": office},
+        {"name": "도시락", "quantity": 1, "amount": 7000, "category_id": food},
+        {"name": "도시락 할인", "quantity": 1, "amount": -2000, "category_id": food},
+    ]
+    client.put(url(team, expense["id"]), json=body, headers=team["alice"])
+    assert client.get(url(team), headers=team["alice"]).json()[0]["main_category_id"] == snack
