@@ -1,4 +1,4 @@
-"""영수증 접수: 이미지 저장 → OCR → 카드번호 마스킹 → 파싱 → 작성 중(DRAFT) 지출 생성.
+"""영수증 접수: 이미지 저장 → OCR → 카드번호 마스킹 → 파싱 → 품목 자동 분류 → 작성 중(DRAFT) 지출 생성.
 
 OCR·파싱이 실패해도 업로드 자체는 성공시킨다 (빈 값으로 만들고 사용자가 직접 입력).
 마스킹을 못 거친 OCR 결과는 절대 저장하지 않는다.
@@ -11,7 +11,8 @@ from dataclasses import dataclass
 
 from sqlalchemy.orm import Session
 
-from app.models import Expense, ExpenseItem, ExpenseStatus, Membership, Receipt
+from app.classify import classify_names
+from app.models import CategorySource, Expense, ExpenseItem, ExpenseStatus, Membership, Receipt
 from app.ocr import OcrEngine, OcrRawResult
 from app.parsing import ReceiptFields, ReceiptItem, parse
 from app.receipts.images import ImageType
@@ -95,15 +96,23 @@ def create_draft_expense(
             paid_at=fields.paid_at,
             total_amount=fields.total_amount,
         )
+        # 품목 → 계정과목 자동 분류. 못 고른 품목은 미분류(None) → 확인 화면에서 사용자가 고름
+        category_ids = classify_names(db, uploader.organization_id, [i.name for i in fields.items])
         expense = Expense(
             organization_id=uploader.organization_id,
             receipt=receipt,
             payer_membership_id=uploader.id,
             status=ExpenseStatus.DRAFT,
-            # 4단계: 여기서 품목 → 계정과목 자동 분류 (category_source=AUTO)
             items=[
-                ExpenseItem(name=i.name, quantity=i.quantity, unit_price=i.unit_price, amount=i.amount)
-                for i in fields.items
+                ExpenseItem(
+                    name=i.name,
+                    quantity=i.quantity,
+                    unit_price=i.unit_price,
+                    amount=i.amount,
+                    category_id=category_id,
+                    category_source=CategorySource.AUTO if category_id is not None else None,
+                )
+                for i, category_id in zip(fields.items, category_ids, strict=True)
             ],
         )
         db.add_all([receipt, expense])

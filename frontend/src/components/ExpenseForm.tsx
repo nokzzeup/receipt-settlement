@@ -24,9 +24,13 @@ type ItemDraft = {
   unitPrice: string
   amount: string
   categoryId: string // '' = 미분류
-  /** 서버가 자동으로 고른 계정과목이고 아직 안 바꿈 → '자동' 표시 */
-  auto: boolean
+  /** 서버가 자동으로 고른 이름·계정과목 (자동 분류가 아니면 null) */
+  autoFrom: { name: string; categoryId: string } | null
 }
+
+/** 자동으로 고른 그대로면 '자동' 표시. 이름이나 계정과목이 달라지면 사용자가 고른 것 (서버도 같은 기준) */
+const isAuto = (item: ItemDraft) =>
+  item.autoFrom !== null && item.name.trim() === item.autoFrom.name && item.categoryId === item.autoFrom.categoryId
 
 type FormState = {
   storeName: string
@@ -46,7 +50,10 @@ const toDraft = (item: ExpenseItem): ItemDraft => ({
   unitPrice: item.unit_price?.toString() ?? '',
   amount: String(item.amount),
   categoryId: item.category_id?.toString() ?? '',
-  auto: item.category_source === 'AUTO' && item.category_id !== null,
+  autoFrom:
+    item.category_source === 'AUTO' && item.category_id !== null
+      ? { name: item.name, categoryId: String(item.category_id) }
+      : null,
 })
 
 const emptyDraft = (): ItemDraft => ({
@@ -56,7 +63,7 @@ const emptyDraft = (): ItemDraft => ({
   unitPrice: '',
   amount: '',
   categoryId: '',
-  auto: false,
+  autoFrom: null,
 })
 
 function initialState(expense: ExpenseDetail): FormState {
@@ -157,8 +164,6 @@ export function ExpenseForm({ orgId, expense, onSubmitted }: Props) {
           const unitPrice = parseInteger(next.unitPrice)
           if (quantity != null && unitPrice != null) next.amount = String(quantity * unitPrice)
         }
-        // 이름이나 계정과목을 바꾸면 더 이상 '자동'이 아님 (서버도 같은 기준)
-        if ('name' in patch || 'categoryId' in patch) next.auto = false
         return next
       }),
     }))
@@ -251,6 +256,7 @@ export function ExpenseForm({ orgId, expense, onSubmitted }: Props) {
   }
 
   const sheetItem = sheet ? state.items.find((item) => item.key === sheet.key) : undefined
+  const autoCount = state.items.filter(isAuto).length
   const message = formError ?? (serverError ? errorMessage(serverError) : null)
 
   return (
@@ -263,7 +269,9 @@ export function ExpenseForm({ orgId, expense, onSubmitted }: Props) {
       ) : (
         <p className="banner anim-rise">
           <Icon name="sparkle" size={20} />
-          자동으로 채웠어요. 사진과 비교해서 틀린 곳만 고쳐주세요
+          {autoCount > 0
+            ? '자동으로 채우고 계정과목도 골라뒀어요. 사진과 비교해서 틀린 곳만 고쳐주세요'
+            : '자동으로 채웠어요. 사진과 비교해서 틀린 곳만 고쳐주세요'}
         </p>
       )}
 
@@ -406,13 +414,13 @@ export function ExpenseForm({ orgId, expense, onSubmitted }: Props) {
                       className={popped === item.key ? 'cat-chip press anim-pop' : 'cat-chip press'}
                       style={chipStyle(look)}
                       onClick={() => setSheet({ key: item.key, open: true })}
-                      aria-label={`${n}번째 품목 계정과목: ${category.name} (바꾸기)`}
+                      aria-label={`${n}번째 품목 계정과목: ${category.name}${isAuto(item) ? ', 자동 분류' : ''} (바꾸기)`}
                     >
                       <span className="cat-chip__icon" style={{ color: look.fg }}>
                         <Icon name={look.icon} size={16} />
                       </span>
                       {category.name}
-                      {item.auto && <span className="auto-badge">자동</span>}
+                      {isAuto(item) && <span className="auto-badge">자동</span>}
                       <Icon name="chevronDown" size={16} />
                     </button>
                   ) : (
@@ -486,7 +494,13 @@ export function ExpenseForm({ orgId, expense, onSubmitted }: Props) {
             </button>
           )}
         </div>
-        {categories.data?.length === 0 && <p className="caption">계정과목이 없어요. 총무가 설정에서 추가할 수 있어요</p>}
+        {categories.data?.length === 0 ? (
+          <p className="caption">계정과목이 없어요. 총무가 설정에서 추가할 수 있어요</p>
+        ) : (
+          <p className="caption" style={{ marginTop: 14 }}>
+            고른 계정은 제출할 때 기억해 뒀다가, 다음에 같은 품목이 나오면 자동으로 골라줘요
+          </p>
+        )}
       </BottomSheet>
 
       {createPortal(

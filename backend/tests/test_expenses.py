@@ -83,7 +83,14 @@ def test_upload_creates_draft_from_ocr(client: TestClient, team: dict, storage_d
     assert receipt["total_amount"] == 25400
     assert receipt["ocr_failed"] is False
     assert [i["name"] for i in expense["items"]] == ["생수 2L", "A4용지 500매", "종이컵 50입", "과자 세트"]
-    assert all(i["category_id"] is None for i in expense["items"])
+    # 기본 계정과목으로 자동 분류 (자세한 건 test_classify.py)
+    snack, office = team["category_ids"][1], team["category_ids"][2]
+    assert [(i["category_id"], i["category_source"]) for i in expense["items"]] == [
+        (snack, "AUTO"),
+        (office, "AUTO"),
+        (office, "AUTO"),
+        (snack, "AUTO"),
+    ]
     assert expense["amount"] == 25400
 
     # 카드번호는 응답에도 DB에도 마스킹된 상태로만
@@ -183,8 +190,9 @@ def test_update_replaces_fields_and_items(client: TestClient, team: dict) -> Non
     assert updated["receipt"]["store_name"] is None
     assert updated["receipt"]["paid_at"] == "2026-09-28T05:32:00Z"
     assert updated["payer"]["name"] == "밥"
+    # 자동 분류와 이름·계정과목이 같으면 AUTO 유지, 이름을 바꾸면(A4용지 500매 → A4용지) MANUAL
     assert [(i["name"], i["amount"], i["category_source"]) for i in updated["items"]] == [
-        ("생수 2L", 2400, "MANUAL"),
+        ("생수 2L", 2400, "AUTO"),
         ("A4용지", 6500, "MANUAL"),
     ]
     assert updated["amount"] == 8900
@@ -239,10 +247,13 @@ def test_submit_lists_what_is_missing(client: TestClient, team: dict) -> None:
     expense = upload_receipt(client, team["alice"], team["org_id"]).json()
     submit = url(team, expense["id"], "/submit")
 
-    # 업로드 직후: 품목 계정과목이 비어 있음
+    # 계정과목을 비워둔 품목이 있으면 제출 불가
+    body = valid_body(team)
+    body["items"] = [{**item, "category_id": None} for item in body["items"]]
+    client.put(url(team, expense["id"]), json=body, headers=team["alice"])
     response = client.post(submit, headers=team["alice"])
     assert response.status_code == 422
-    assert "계정과목을 정하지 않은 품목이 4개" in response.json()["detail"]
+    assert "계정과목을 정하지 않은 품목이 2개" in response.json()["detail"]
 
     body = valid_body(team)
     body |= {"store_name": None, "paid_at": None, "total_amount": 1000}

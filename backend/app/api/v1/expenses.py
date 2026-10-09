@@ -19,6 +19,7 @@ from sqlalchemy import ColumnElement, func, or_, select
 from sqlalchemy.orm import aliased
 
 from app.api.deps import CurrentMembership, DbSession, OcrEngineDep
+from app.classify import learn_from_items
 from app.models import (
     ApprovalAction,
     ApprovalLog,
@@ -331,6 +332,8 @@ def submit_expense(org_id: int, expense_id: int, me: CurrentMembership, db: DbSe
 
     expense.status = ExpenseStatus.SUBMITTED
     expense.approval_logs.append(ApprovalLog(actor_membership_id=me.id, action=ApprovalAction.SUBMIT))
+    # 사용자가 직접 고른 계정과목을 조직 규칙으로 저장 → 다음 영수증부터 자동 분류에 반영
+    learn_from_items(db, org_id, expense.items)
     db.commit()
     return _detail(expense, me)
 

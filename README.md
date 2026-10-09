@@ -220,7 +220,7 @@ npm run ocr:eval -- --refresh   # 전처리·엔진 설정을 바꿨을 때 (OCR
 │   │   ├── models/           도메인 모델 9개                                      (김도현)
 │   │   ├── ocr/              엔진 인터페이스, Mock·PaddleOCR 엔진, 전처리, 자가 진단 (김도현)
 │   │   ├── parsing/          ReceiptFields 스키마 + parse() (규칙 기반), 행 묶기    (이성민)
-│   │   ├── classify/         품목 → 계정과목 분류 (4단계), 기본 계정과목            (이성민)
+│   │   ├── classify/         품목 → 계정과목 자동 분류·학습 (4단계), 기본 계정과목  (이성민)
 │   │   └── settlement/       정산 엔진 (5단계)                                     (이성민)
 │   └── tests/
 ├── frontend/                 React PWA                                              (신율겸)
@@ -239,7 +239,7 @@ npm run ocr:eval -- --refresh   # 전처리·엔진 설정을 바꿨을 때 (OCR
 ### 이성민 — 백엔드 API · 파싱 · 분류 · 정산
 - `backend/app/api/v1/` — 1·2단계 완료. 조직 안 API는 `api/deps.py`의 `CurrentMembership`(멤버 아니면 404) / `require_roles(...)`(역할 아니면 403)를 반드시 거친다
 - `backend/app/parsing/parser.py` — 실제 PaddleOCR 출력으로 보강함. 실제 영수증 데이터가 모이면 `npm run ocr:eval -- -v`로 틀린 곳을 보고 규칙 수정 → 점수가 오를 때만 반영. 고친 사례는 `tests/fixtures/paddle/`처럼 샘플로 남겨 회귀 테스트
-- `classify/` — 4단계: 업로드 때 품목 자동 분류 자리는 `receipts/intake.py`에 표시해 둠. `settlement/` — 5단계, pytest 필수
+- `classify/` — 4단계 완료: 업로드 때 품목 자동 분류(`receipts/intake.py`), 제출 때 고친 품목 학습. 기본 키워드는 `classify/defaults.py` — 실제 영수증에서 미분류로 남는 품목을 보고 추가 (`tests/test_classify.py`에 사례도 같이). `settlement/` — 5단계, pytest 필수
 
 ### 김도현 — DB · OCR · 데이터셋
 - **먼저 `npm run setup:ocr`** (위 "실제 OCR"). 엔진은 `backend/app/ocr/paddle.py`(설정 근거 주석), 전처리는 `preprocess.py`
