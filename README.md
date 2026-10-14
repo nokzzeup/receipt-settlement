@@ -1,307 +1,147 @@
-# 영수증 정산 (가칭) — 팀 재(무)재(경)이야
+# 📌 팀 공지 (2026-10-14) — 재(무)재(경)이야
 
-법인카드 없는 학생회·동아리·소규모 팀을 위한 영수증 이미지 기반 지출 정산 PWA.
-영수증 촬영 → OCR → 확인·수정 → 품목별 계정 분류 → 승인 → 결제자별 환급 집계.
-
-> 📄 범위·규칙·모델: [docs/PROJECT.md](docs/PROJECT.md) · 설계 결정과 이유: [docs/DECISIONS.md](docs/DECISIONS.md)
-
-**지금 되는 것 (3단계까지)**: 회원가입·로그인 → 조직 만들기/초대 코드로 참여 → 역할·계정과목(예산) 관리 →
-영수증 촬영·업로드 → **실제 OCR 인식**(PaddleOCR — 설치한 PC만, 나머지는 고정 샘플) → 확인·수정 → 임시 저장 / 제출 → 지출 목록
-· 노트북 한 대를 팀 공용 서버로 (같은 와이파이·다른 와이파이·LTE에서 접속)
-
-| 구성 | 기술 |
-|---|---|
-| frontend | React 19 + Vite 8 + TypeScript, react-router 8, TanStack Query 5, vite-plugin-pwa |
-| backend | Python 3.13, FastAPI, SQLAlchemy 2.0, Alembic, Pydantic v2, pytest |
-| DB | SQLite (`backend/data/app.db`, 설치 불필요) — 설정 한 줄로 PostgreSQL 전환 가능 |
+> 1~6단계(필수 기능) 개발 완료. 이제 **실제 영수증 정확도 + 실사용 테스트 + 평가** 단계(7단계)입니다.
+> 아래 **1. 해줄 것**을 먼저 보고, 방법은 **2. 하는 방법**을 참고해 주세요.
 
 ---
 
-## 처음 한 번: 설치
+## 1. 해줄 것
 
-**1. Git** — https://git-scm.com (Windows 설치 옵션은 전부 기본값)
+### 전원 (이번 주 안)
+- [ ] 최신 코드 받기 (`git pull`) → 실행해서 화면이 뜨는지 확인
+- [ ] **본인 폰**으로 서버 주소에 접속 → 영수증 1장 찍어서 올려보기 (아이폰/안드로이드 기종 알려주기)
+- [ ] 각자 작업한 건 **본인 계정으로 커밋·push** (개인 기여가 커밋 기록에 남도록)
 
-**2. Node.js 24 LTS** — https://nodejs.org
+### 김도현 — 영수증 데이터 · 정확도
+- [ ] 실제 영수증 사진 **50장 이상** 수집 (편의점·마트·식당·카페·문구점 등 업종 섞기, 구겨지거나 바랜 것도 포함)
+- [ ] 사진마다 **정답 라벨(JSON)** 작성
+- [ ] `npm run ocr:eval`로 **첫 정확도 점수** 내서 공유 (가게명·결제일시·합계·품목)
+- [ ] 이후: 전처리 실험(기울기 보정, 영수증 영역 자르기, 흐린 감열지 보정) — 점수 오를 때만 반영
 
-**3. Python 3.13** — https://www.python.org/downloads/
-- 다운로드 페이지 맨 위 버튼은 최신 버전(3.14 이상)이니 **목록에서 3.13.x를 골라서** 받을 것
-  (3.14 이상은 3단계에 쓸 PaddleOCR가 아직 지원하지 않음. 3.12는 가능)
-- Windows: 설치 첫 화면에서 **"Add python.exe to PATH"** 체크
-- Mac: python.org 설치 파일 또는 `brew install python@3.13`
+### 신율겸 — 화면(UI/UX) 점검 · 사용성 테스트
+- [ ] 실제 폰(iOS Safari / 안드로이드 크롬)에서 전체 흐름 써보기
+- [ ] 불편한 점·수정할 부분을 **GitHub Issues**에 하나씩 등록 (스크린샷 첨부)
+- [ ] 사용성 테스트 설계: 과업 시나리오 + 만족도 설문(SUS 10문항)
+- [ ] 알림 목록 화면 UI (기능은 이성민이 서버 쪽 작업)
 
-**4. (Windows만) PowerShell 스크립트 실행 허용** — 한 번만, 물어보면 `Y`
+### 이성민
+- [ ] 실사용 필수 기능: 승인·반려·환급 알림, 구성원 내보내기·나가기, 비밀번호 변경/임시 비밀번호, 지출 검색·기간 필터
+- [ ] 정확도 측정 결과 보고 파서·자동 분류 보강
+- [ ] 실사용 테스트할 동아리·학생회 섭외
+
+---
+
+## 2. 하는 방법
+
+### 2-1. 최신 코드 받기
 ```powershell
-Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+cd C:\dev\receipt-settlement     # 본인 레포 폴더
+git pull
 ```
+- 처음 받는 경우: `git clone https://github.com/nokzzeup/receipt-settlement.git`
+- Git이 없다고 나오면: `winget install --id Git.Git -e` 설치 → **PowerShell 새로 열기**
+- 폴더는 **OneDrive·한글 경로(바탕 화면 등) 말고** `C:\dev` 같은 곳 권장
 
-**5. 코드 받기** — 비공개 레포라 GitHub 메일로 온 초대를 먼저 수락하고, 처음엔 GitHub 로그인 창이 뜨면 로그인
-```
-git clone https://github.com/nokzzeup/receipt-settlement.git
-cd receipt-settlement
-```
-- (Windows) **OneDrive 안(바탕 화면·문서가 OneDrive로 동기화되는 PC가 많음)이나 한글이 들어간 경로는 피하기** →
-  `C:\dev` 같은 곳에서 받기 (`mkdir C:\dev` → `cd C:\dev` → 위 명령). OneDrive는 설치 파일 수만 개(약 2GB)를 계속 동기화하고,
-  한글 경로는 일부 도구(PaddleOCR 등)가 못 여는 경우가 있음. 이런 위치면 실행 창에 `[주의] 프로젝트 폴더 위치`가 뜬다
-
-**6. 실행** — 아래 "매일: 실행"과 같음. 처음 한 번은 설치(파이썬 가상환경·패키지·DB·프론트 패키지)를 자동으로 하느라 2~3분 걸린다.
-
----
-
-## 매일: 실행
-
-### 더블클릭 (제일 쉬움)
-| Windows | Mac |
-|---|---|
-| `start-windows.bat` 더블클릭 | `start-mac.command` 더블클릭 |
-
-- 처음이거나 `git pull`로 패키지가 바뀌었으면 **설치부터 자동으로** 한다
-- 서버가 다 뜨면 **브라우저가 자동으로** http://127.0.0.1:5173 을 연다 (localhost:5173도 같음) → 화면 맨 위 **`DEV · 백엔드: API ok · DB ok`** 확인
-- 이미 켜져 있을 때 또 더블클릭하면 브라우저만 다시 연다
-- 실패하면 창이 `계속하려면 아무 키나 누르십시오`에서 멈춘다 → **그 위의 메시지**를 복사해서 공유
-- **끄기: 그 검은 창(터미널)을 닫기**
-- Mac에서 처음 더블클릭할 때 "확인되지 않은 개발자" 경고가 뜨면: 파일 우클릭 → 열기
-
-### 터미널에서
-```
-npm start        # 더블클릭과 같음 (필요하면 설치 → 실행 → 브라우저 열기)
-npm run dev      # 실행만 (브라우저는 직접 열기)
-```
-- 백엔드 API 문서: http://localhost:8000/docs
-- 코드를 저장하면 백엔드·프론트 둘 다 자동으로 반영됨
-- 끄기: `Ctrl + C`
-- 터미널에 `[api]`(백엔드)와 `[web]`(프론트) 로그가 같이 나온다
-
-### Git으로 같이 작업하기
-```
-git pull                       # 작업 시작 전에 항상 (패키지가 바뀌었으면 다음 실행 때 자동 설치)
-git add -A
-git commit -m "무엇을 했는지"
-git push                       # 거절되면 git pull 후 다시 push
-```
-
----
-
-## 명령 모음 (전부 프로젝트 맨 위 폴더에서)
-
-| 명령 | 하는 일 |
-|---|---|
-| `npm start` | 필요하면 설치 → 백엔드 + 프론트 실행 → 브라우저 열기 (더블클릭 실행과 같음) |
-| `npm run dev` | 백엔드 + 프론트 실행 |
-| `npm run dev:host` | 폰에서도 접속 가능하게 실행 (아래 "폰에서 테스트") |
-| `npm run serve` | 팀 공용 서버로 실행 (server 파일 더블클릭과 같음, 아래 "팀 공용 서버") |
-| `npm test` | 백엔드 테스트 |
-| `npm run setup:ocr` | 실제 OCR(PaddleOCR) 설치 — 공용 서버 PC·OCR 담당만 (아래 "실제 OCR") |
-| `npm run ocr:eval` | OCR + 파싱 정확도 채점 (`dataset/` 사진 + 정답) |
-| `npm run db:revision "add xxx"` | 모델 수정 후 마이그레이션 생성 → **생성된 파일 꼭 읽어보기** |
-| `npm run db:upgrade` | 마이그레이션 적용 (`npm run dev`가 시작할 때 자동으로 함) |
-| `npm run db:check` | 모델과 마이그레이션이 어긋났는지 검사 |
-| `npm run gen:api` | 프론트 API 타입 갱신 (`npm run dev` 실행 중일 때) |
-| `npm run build` / `npm run lint` | 프론트 빌드 / 린트 (PR 전에) |
-| `npm run setup` | 설치만 따로 (더블클릭/`npm start`는 필요할 때 알아서 함) |
-
-- **DB 내용 보기**: 무료 프로그램 [DB Browser for SQLite](https://sqlitebrowser.org)로 `backend/data/app.db` 열기
-- **DB 초기화**: `npm run dev`를 끄고 `backend/data/` 안의 `app.db*` 파일을 지운 뒤 다시 `npm run dev`
-
----
-
-## 폰에서 테스트 (카메라 촬영)
-
-1. PC와 폰을 같은 와이파이에 연결
-2. `npm run dev:host` → 터미널의 `Network: http://192.168.x.x:5173` 주소를 폰 브라우저로 열기
-- Windows는 처음 실행할 때 방화벽 팝업에서 "개인 네트워크" 허용
-- 학교 공용 와이파이는 기기끼리 접속이 막혀 있는 경우가 많음 → 핫스팟 사용
-- 촬영은 이 상태로 되지만, PWA 설치·오프라인 기능은 HTTPS에서만 동작 → 필요해질 때 따로 준비
-- 이건 개발 중 확인용. 여러 명이 **같은 데이터로 같이 쓰는 건** 아래 "팀 공용 서버"
-
----
-
-## 팀 공용 서버 (노트북 한 대를 서버로)
-
-여러 명이 같은 데이터를 쓰려면 PC 한 대(팀장 노트북)를 서버로 켜고, 다른 사람은 그 주소로 접속한다.
-(개발용 실행은 PC마다 데이터가 따로라서 같이 쓰는 용도가 아님)
-
-| Windows | Mac | 터미널 |
+### 2-2. 실행
+| 용도 | Windows | Mac |
 |---|---|---|
-| `server-windows.bat` 더블클릭 | `server-mac.command` 더블클릭 | `npm run serve` |
+| 개발용 (내 PC에서만) | `start-windows.bat` 더블클릭 | `start-mac.command` |
+| 팀 공용 서버 (폰·다른 PC 접속) | `server-windows.bat` 더블클릭 | `server-mac.command` |
 
-1. 창에 뜨는 주소를 확인한다
-   ```
-   이 노트북:                  http://127.0.0.1:8080
-   같은 와이파이의 PC·폰:      http://192.168.0.12:8080   (Wi-Fi)
-   다른 와이파이·LTE에서도 접속:  https://단어-단어-단어-단어.trycloudflare.com
-   ```
-2. 다른 PC·폰의 브라우저에서 주소를 열고 회원가입·로그인해서 쓴다. 폰은 촬영 버튼을 누르면 카메라가 바로 열림
-   - 같은 와이파이면 두 번째 주소, **다른 와이파이·LTE면 세 번째(https) 주소** — 세 번째는 어디서나 됨
-3. 처음 켤 때 Windows 방화벽 창이 뜨면 **허용** (같은 와이파이 주소에 필요. https 주소는 방화벽과 상관없음)
+- `git pull` 뒤 첫 실행은 필요한 설치가 자동으로 돌아서 오래 걸릴 수 있음 (인터넷 필요)
+- 서버 창에 나오는 주소로 폰에서 접속 (같은 와이파이 주소 / 외부 https 주소)
+- 실행이 이미 켜져 있으면 창을 닫고 다시 실행
 
-**다른 와이파이·LTE에서 접속 (https 주소)**
-- Cloudflare의 무료 터널(Quick Tunnel)을 쓴다. 서버가 켜질 때 `cloudflared`를 같이 띄워서 주소를 받아옴 — 계정·설치 필요 없음
-  (처음 한 번 공식 파일을 내려받아 `.tools/`에 둠. 버전 고정 + 체크섬 확인)
-- **서버를 켤 때마다 주소가 바뀐다** → 켤 때마다 팀 단톡방에 새 주소를 공유. 바뀌면 로그인을 다시 해야 함
-- https라서 폰에서 "홈 화면에 추가"로 앱처럼 쓸 수 있음 (단, 주소가 바뀌면 다시 추가)
-- 주소를 아는 사람은 누구나 로그인 화면까지는 들어올 수 있다. 데이터는 로그인 + 조직 초대 코드로 보호되고, 같은 계정으로 10분에 10번 틀리면 잠시 로그인이 막힘
-- 안 만들어지면 창에 이유가 나옴. 같은 와이파이 접속은 그대로 동작. 학교·회사 네트워크가 막는 경우가 있음 → 핫스팟으로 다시 켜기
-- 끄려면 `.env`에 `SERVER_TUNNEL=off` (같은 와이파이 전용)
-- Cloudflare 안내상 "테스트·개발용, 가동 보장 없음". 실사용 테스트 때 고정 주소가 필요하면 Tailscale Funnel 등으로 바꾼다
+### 2-3. 영수증 데이터 넣기 (김도현)
+```
+dataset/
+  images/   r0001.jpg, r0002.jpg ...   ← git에 안 올라감. 팀 드라이브에 따로 공유
+  labels/   r0001.json, r0002.json ... ← git에 올림
+```
+- 사진과 라벨 이름을 1:1로 맞춤 (`r0001.jpg` ↔ `r0001.json`)
+- 라벨 형식:
+```json
+{
+  "store_name": "행복마트 테스트점",
+  "paid_at": "2026-09-28T14:32:05+09:00",
+  "total_amount": 25400,
+  "items": [
+    { "name": "생수 2L", "quantity": 2, "unit_price": 1200, "amount": 2400 },
+    { "name": "행사할인", "quantity": 1, "unit_price": null, "amount": -1000 }
+  ]
+}
+```
+- 금액·수량은 정수 (쉼표·"원" 없이), 시각은 `+09:00` 붙이기
+- 영수증에 없는 값은 `null`, 품목명은 **영수증에 찍힌 그대로** (오타·약어 포함)
+- 할인 줄은 음수 금액 품목
+- 카드번호·승인번호가 찍힌 원본 사진은 공개 레포에 올리지 말 것
 
-- 하는 일: (필요하면 설치) → 화면 빌드 → DB 자동 백업 → DB 구조 업데이트 → 서버 실행. **끄기: 창 닫기**
-- **데이터는 `server-data/` 폴더** (DB·영수증 사진·로그인 키). 개발용 `backend/data`와 따로라서 처음엔 회원가입부터. git에 안 올라감
-- 개발용 실행(start 파일)과 **동시에 켜도 됨** — 포트(개발 5173·8000 / 서버 8080)와 데이터가 다름
-- 코드 업데이트: 서버 창 닫기 → `git pull` → 다시 더블클릭 (화면 빌드·DB 업데이트는 자동)
-- 창 맨 위에 `코드 버전`(커밋 번호)과 `.env`의 `인식(OCR) 설정`, 주소 아래에 실제 `인식(OCR)` 상태가 나온다 → 문제가 생기면 창을 맨 위부터 캡처해서 공유
-- 백업: 켤 때마다 DB가 `server-data/backups/`에 자동 저장(최근 10개). 영수증 사진까지 보관하려면 서버를 끄고 `server-data` 폴더째 복사.
-  되돌리기: 서버를 끄고 백업 파일을 `server-data/app.db`로 덮어쓴 뒤 다시 켜기
-- 포트를 바꾸려면 `.env`의 `SERVER_PORT`
+### 2-4. 정확도 측정 (김도현)
+```powershell
+npm run setup:ocr            # 처음 한 번 (실제 OCR 설치)
+npm run ocr:eval             # 가게명·결제일시·합계·품목 정답률
+npm run ocr:eval -- -v       # 틀린 항목의 정답/인식 값까지 보기
+npm run ocr:eval -- --refresh  # 전처리·엔진 설정을 바꿨을 때 (OCR부터 다시)
+```
+- `DLL load failed` 오류 → https://aka.ms/vc14/vc_redist.x64.exe 설치 후 `npm run setup:ocr` 다시
+- 결과 화면을 캡처해서 단톡방/이슈에 공유
 
-주의
-- 노트북이 꺼지거나 절전·덮개 닫힘이면 아무도 못 씀 → 서버로 쓰는 동안은 절전 끄기
-- 같은 와이파이 주소(http)는 암호화가 안 됨 → 카페·학교 같은 공용 와이파이에선 https 주소를 쓰는 게 안전
-- 학교 와이파이는 기기끼리 막혀 있는 경우가 많음 → https 주소를 쓰거나 노트북 핫스팟에 연결
-- 공용 서버에서는 API 문서(`/docs`)를 끈다 (개발 모드에서만 보임)
+### 2-5. 불편 사항 등록 (신율겸)
+GitHub 레포 → **Issues → New issue**, 하나에 문제 하나씩:
+```
+[화면] 어느 화면 (예: 지출 확인·수정)
+[기기] 아이폰 15 / Safari
+[문제] 무엇이 불편한지
+[기대] 어떻게 바뀌면 좋을지
+[첨부] 스크린샷
+```
+
+### 2-6. 내 작업 올리기 (전원)
+```powershell
+git pull                          # 먼저 최신으로
+git add .
+git commit -m "무엇을 했는지 한 줄"
+git push
+```
+- push가 `rejected`로 거절되면: `git pull` 한 번 더 → 다시 `git push`
+- 충돌(conflict) 나면 혼자 해결하지 말고 단톡방에 메시지 그대로 공유
 
 ---
 
-## 실제 OCR (PaddleOCR)
+## 3. 현재 진행 상황 (2026-10-14 기준)
 
-기본은 **가짜 OCR(Mock)** — 어떤 사진을 올려도 고정 샘플이 채워진다. 설치할 것이 없어서 화면·API 개발은 이걸로 충분.
-실제 인식은 **공용 서버로 쓰는 PC**와 **OCR 담당(김도현)** 만 켜면 된다.
+| 단계 | 내용 | 상태 |
+|---|---|---|
+| 0 | 프로젝트 뼈대, 원클릭 실행 | 완료 |
+| 1 | 회원가입·로그인, 조직 생성, 초대 코드 참여, 역할(총무·승인자·구성원) | 완료 |
+| 2 | 영수증 촬영·업로드 → 인식 결과 확인·수정 → 지출 등록, 계정과목·예산 | 완료 |
+| 3 | 실제 OCR(PaddleOCR) 연결, 정확도 측정 도구 | 완료 (실제 영수증 정확도는 측정 전) |
+| 4 | 품목 → 계정과목 자동 분류, 사용자가 고친 결과 학습 | 완료 |
+| 5 | 승인·반려·환급, 결제자별 돌려줄 돈, 계정별 예산 잔액·초과 경고 | 완료 |
+| 6 | 기간별 리포트, 엑셀 내보내기, 중복 영수증 감지 | 완료 |
+| 7 | 정확도 측정·개선, 실사용 테스트 | **진행 중** |
 
-```
-npm run setup:ocr
-```
-- 하는 일: OCR 패키지 설치(약 300MB, 몇 분) → 모델 파일 받기(약 25MB, `.tools/paddlex`) → 시험 이미지로 자가 진단 → `.env`의 `OCR_ENGINE`을 `paddle`로 변경
-- 되는 PC: **Windows(64비트) / Apple Silicon Mac**, Python 3.12·3.13. Intel Mac·ARM 윈도우는 설치 파일이 없어서 Mock으로 개발
-- Windows는 **Microsoft Visual C++ 재배포 가능 패키지(x64)** 가 있어야 한다 (PaddleOCR 일부가 이 패키지의 DLL을 씀).
-  없으면 setup:ocr가 먼저 알려줌 → https://aka.ms/vc14/vc_redist.x64.exe 받아서 설치 후 다시 `npm run setup:ocr`
-- 서버를 켜면 창에 `인식(OCR): 실제 OCR(PaddleOCR) 사용 중`이 뜬다 (개발 화면은 맨 위 표시줄에 OCR 상태)
-- `.env`에 `OCR_ENGINE=paddle`만 적어둬도 더블클릭 실행(start·server 파일)이 필요하면 알아서 설치한다
-- 끄기: `.env`의 `OCR_ENGINE=mock`
-- 속도: 한 장에 약 2~5초 (2코어 테스트 PC 기준. 노트북은 보통 더 빠름). 여러 명이 동시에 올리면 한 장씩 차례로 처리
-- 인식에 실패해도(모델 오류 등) 업로드는 되고 "직접 입력"으로 처리된다
+### 주요 기능 (화면 기준)
+- **홈**: 내가 돌려받을 돈, 할 일(작성 중·반려·승인 대기·보낼 돈), 최근 지출
+- **찍기**: 촬영/앨범 → 자동 인식 → 가게·결제일시·합계·품목 자동 입력, 품목별 계정과목 자동 선택
+- **지출**: 상태별 목록(작성 중·대기·승인·반려), 상세에서 승인·반려(사유)·제출 취소·처리 기록
+- **정산**
+  - 돌려줄 돈: 사람별 금액 → 총무가 송금 후 "보냈어요"로 환급 완료 표시 (송금은 앱 밖에서)
+  - 예산: 계정과목별 집행액·남은 예산·초과 경고, 예산 기간 설정
+  - 리포트: 기간별 합계·계정과목별·사람별 + **엑셀 내보내기** (총무·승인자)
+- **설정**: 초대 코드, 계정과목·예산, 구성원 역할
+- **중복 경고**: 같은 사진 / 다시 저장한 비슷한 사진 / 가게·시각·금액이 같은 영수증
 
-**정확도 측정** — `dataset/images`에 사진, `dataset/labels`에 정답 JSON(형식: `dataset/README.md`)을 넣고
-```
-npm run ocr:eval            # 가게명·결제일시·합계·품목 정답률
-npm run ocr:eval -- -v      # 틀린 항목의 정답/인식 값까지
-npm run ocr:eval -- --refresh   # 전처리·엔진 설정을 바꿨을 때 (OCR부터 다시)
-```
-- 처음엔 사진마다 OCR을 돌리고 결과를 `dataset/ocr-cache/`에 저장 → 파서만 고쳤으면 다음부터 몇 초 만에 다시 채점 (OCR 설치 없는 PC에서도 가능)
-- 파서·전처리를 바꾸면 **바꾸기 전/후 점수를 비교**해서 좋아질 때만 반영
-
----
-
-## 폴더 구조
-
-```
-.
-├── start-windows.bat         더블클릭 실행 — 개발용 (Windows)
-├── start-mac.command         더블클릭 실행 — 개발용 (Mac)
-├── server-windows.bat        더블클릭 실행 — 팀 공용 서버 (Windows)
-├── server-mac.command        더블클릭 실행 — 팀 공용 서버 (Mac)
-├── server-data/              공용 서버의 DB·영수증 사진·백업 (git 제외, 서버 PC에만 생김)
-├── .tools/                   자동으로 내려받는 도구·모델 — cloudflared, PaddleOCR 모델 (git 제외)
-├── package.json              실행 명령 모음 (npm start / dev / test ...)
-├── docs/                     PROJECT.md(범위·규칙·모델), DECISIONS.md(설계 결정과 이유)
-├── scripts/                  위 명령이 부르는 실행 스크립트 + 정확도 측정 등 유틸
-├── .env.example              환경변수 견본 (setup이 .env로 복사, .env는 커밋 금지)
-├── backend/
-│   ├── requirements*.txt     파이썬 패키지 (버전 고정)
-│   ├── data/                 SQLite DB 파일 (git 제외)
-│   ├── storage/              업로드 이미지 (git 제외)
-│   ├── app/
-│   │   ├── main.py           FastAPI 앱
-│   │   ├── web.py            공용 서버 모드에서 빌드된 화면을 같이 내보내기
-│   │   ├── ops/              운영 도구 — DB 백업, 정확도 측정(evaluate.py)
-│   │   ├── core/             설정(config.py), 시간대(timezone.py)
-│   │   ├── api/              라우터 — v1/*.py (auth, orgs, categories, expenses), deps.py(권한)  (이성민)
-│   │   ├── schemas/          API 요청·응답 스키마 (바뀌면 프론트 gen:api)          (이성민)
-│   │   ├── receipts/         영수증 접수: 이미지 검증·저장, 카드번호 마스킹, OCR 호출  (이성민)
-│   │   ├── db/               Base, 세션, 커스텀 타입, migrations/ (Alembic)     (김도현)
-│   │   ├── models/           도메인 모델 9개                                      (김도현)
-│   │   ├── ocr/              엔진 인터페이스, Mock·PaddleOCR 엔진, 전처리, 자가 진단 (김도현)
-│   │   ├── parsing/          ReceiptFields 스키마 + parse() (규칙 기반), 행 묶기    (이성민)
-│   │   ├── classify/         품목 → 계정과목 분류 (4단계), 기본 계정과목            (이성민)
-│   │   └── settlement/       정산 엔진 (5단계)                                     (이성민)
-│   └── tests/
-├── frontend/                 React PWA                                              (신율겸)
-│   └── src/
-│       ├── router.tsx        화면 경로 목록
-│       ├── api/              client.ts(타입 있는 fetch), schema.d.ts(자동 생성), 기능별 훅
-│       ├── lib/format.ts     금액·한국시간 표시, 정수 입력 변환
-│       ├── layouts/  pages/  components/  hooks/
-└── dataset/                  테스트 영수증 + 정답 라벨 (형식: dataset/README.md)
-```
+### 결정된 사항
+- 예산 기간: 조직별 "현재 예산 기간" 1개 (잔액은 그 기간 결제분 기준, 돌려줄 돈은 기간 무관)
+- 영수증 없는 지출: 이체 확인 화면 캡처를 영수증 대신 등록
+- 반려된 지출: 올린 사람(또는 총무)이 고쳐서 다시 제출
+- 승인자는 제출된 지출부터 열람, 총무는 전체 열람
+- 인터넷뱅킹 결제내역 목록 자동 반영: 보류 (개인정보·품목 정보 없음) — 팀 최종 결정 필요
 
 ---
 
-## 팀원별 시작 지점
-
-### 이성민 — 백엔드 API · 파싱 · 분류 · 정산
-- `backend/app/api/v1/` — 1·2단계 완료. 조직 안 API는 `api/deps.py`의 `CurrentMembership`(멤버 아니면 404) / `require_roles(...)`(역할 아니면 403)를 반드시 거친다
-- `backend/app/parsing/parser.py` — 실제 PaddleOCR 출력으로 보강함. 실제 영수증 데이터가 모이면 `npm run ocr:eval -- -v`로 틀린 곳을 보고 규칙 수정 → 점수가 오를 때만 반영. 고친 사례는 `tests/fixtures/paddle/`처럼 샘플로 남겨 회귀 테스트
-- `classify/` — 4단계: 업로드 때 품목 자동 분류 자리는 `receipts/intake.py`에 표시해 둠. `settlement/` — 5단계, pytest 필수
-
-### 김도현 — DB · OCR · 데이터셋
-- **먼저 `npm run setup:ocr`** (위 "실제 OCR"). 엔진은 `backend/app/ocr/paddle.py`(설정 근거 주석), 전처리는 `preprocess.py`
-  - 버전은 `backend/requirements-ocr.txt`에 고정 (paddlepaddle 3.3.1 / paddleocr 3.7.0). 올리려면 옵션·결과 모양을 다시 확인하고 점수 비교
-- **지금 제일 중요한 일: 실제 영수증 데이터** — 지금 점수는 직접 만든 시험 영수증 기준이라 실제 정확도는 아직 모름
-  - 업종 섞어서 20~30장 + 정답 라벨 → `npm run ocr:eval` 로 첫 점수 (형식·팁: `dataset/README.md`)
-  - 그다음 전처리 후보(바랜 감열지 대비 보정, 그림자 보정, 영수증 영역 자르기 — `preprocess.py` 주석)를 하나씩 넣어보고 점수가 오를 때만 반영
-- `backend/app/models/` — 모델 수정하면 `npm run db:revision "설명"` → 생성 파일 검토 → `npm run db:check`
-
-### 신율겸 — 프론트 PWA
-- 동작하는 화면: 로그인, 조직 선택, 홈(`HomePage`), 지출 목록(상태별 거르기), 영수증 찍기(→ 인식 중 스캔 화면), 지출 확인·수정(`ExpenseDetailPage` + `components/ExpenseForm.tsx`, 계정 고르기 시트·제출 완료 화면), 설정(초대 코드·계정과목·구성원 역할). 남은 화면: 정산(5단계, 지금은 안내 화면)
-- 디자인 기준: `docs/DECISIONS.md`의 "화면 디자인". 색·모양·모션은 `frontend/src/index.css` 맨 위 변수(`:root`)만 바꾸면 전체 반영
-- 공통 부품: `components/` — `Icon`(선 아이콘), `BottomSheet`, `SegmentedTabs`, `ExpenseRow`, `CategoryTile`, `NumberInput`(쉼표 표시), `TopBar` / 알림·확인 창: `useFeedback()`(`feedback/`) / 순서대로 떠오르기: `className="anim-rise" style={stagger(n)}`
-- `frontend/vite.config.ts` — PWA 앱 이름·색, `frontend/public/` 아이콘 교체
-- API 호출은 `src/api/client.ts`의 `api.GET/POST(...)` + `unwrap()` + TanStack Query 훅 (`src/api/expenses.ts`가 예시). 로그인 토큰은 자동으로 붙고, 401이면 로그인 화면으로 이동
-- 백엔드 API가 바뀌면 `npm run gen:api` (백엔드 켜둔 상태) → `src/api/schema.d.ts` 갱신
-
----
-
-## 팀 규칙 (요약)
-
-- `OcrRawResult`(`app/ocr/schemas.py`) / `ReceiptFields`(`app/parsing/schemas.py`)는 **합의 없이 변경 금지**
-- 금액·수량은 `int`만, 시간은 시간대 있는 값만 저장 → 어기면 DB 저장 단계에서 에러가 나게 해둠 (`app/db/types.py`)
-- API는 전부 `/api/v1` 아래, 프론트 타입은 `npm run gen:api`로 생성 (손으로 타입 쓰지 않기)
-- `.env` 커밋 금지 — 새 설정값을 추가하면 `.env.example`에도 추가
-- 마이그레이션을 두 사람이 동시에 만들면 갈래가 2개가 됨 → 만들기 전에 pull, 생기면 `backend/.venv` 파이썬으로 `alembic merge heads`
-
----
-
-## PostgreSQL로 바꾸려면 (필요할 때만)
-
-1. `backend/.venv` 파이썬으로 `pip install "psycopg[binary]"`
-2. `.env`의 `DATABASE_URL=postgresql+psycopg://user:password@localhost:5432/dbname`
-3. `npm run db:upgrade`
-
-같은 마이그레이션·테스트가 PostgreSQL 16에서도 통과하는 것을 확인해뒀다.
-
----
-
-## 문제 해결
-
-| 증상 | 해결 |
-|---|---|
-| `npm : 이 시스템에서 스크립트를 실행할 수 없으므로...` | 위 설치 3번 (`Set-ExecutionPolicy ...`) |
-| setup에서 `Python 3.13(또는 3.12)이 필요합니다` | 3.13 설치 후 **터미널을 새로 열고** 다시 `npm run setup` |
-| setup에서 `Node.js ... 22.22 이상이 필요합니다` | nodejs.org에서 24 LTS 설치 |
-| `npm run dev`에서 `먼저 npm run setup 을 실행하세요` | 말 그대로 setup부터 |
-| `포트 8000/5173를 이미 다른 프로그램이 쓰고 있어요` | 다른 창에 서버가 켜져 있음 → 그 창을 닫고 다시 실행. 켜둔 창이 없으면 PC 재시작 |
-| `Windows가 포트 ...를 예약해둬서 쓸 수 없어요` | Docker·WSL 설치 후 생기는 문제. 관리자 PowerShell에서 `net stop winnat` → `net start winnat` 후 다시 실행 |
-| (Windows) 실행 창 안을 클릭했더니 서버가 멈춘 것 같음 | 창이 '선택 모드'로 바뀐 것 → `Esc`를 누르면 다시 진행 |
-| 화면 위 표시줄이 `연결 실패` | 터미널의 `[api]` 로그에 에러가 있는지 확인 |
-| 다른 PC·폰에서 공용 서버 주소가 안 열림 | ① 같은 와이파이인지 ② 서버 창이 켜져 있는지 ③ Windows 보안 → 방화벽 및 네트워크 보호 → 방화벽에서 앱 허용 → `python.exe`의 '개인' 체크 ④ 설정 → 네트워크 및 인터넷 → Wi-Fi에서 네트워크 프로필을 '개인'으로 ⑤ 학교 와이파이면 노트북 핫스팟으로 |
-| `Microsoft Visual C++ 재배포 가능 패키지(x64)가 없어서` 또는 `DLL load failed while importing _pyclipper` | https://aka.ms/vc14/vc_redist.x64.exe 받아서 설치 → `npm run setup:ocr` 다시 (패키지는 다시 안 받고 자가 진단만 함) |
-| 실행 창에 `[주의] 프로젝트 폴더 위치` | OneDrive 안이거나 경로에 한글이 있음 → 창을 모두 닫고 폴더를 통째로 `C:\dev` 같은 곳으로 옮기기 (설치물·DB·`.env`가 같이 옮겨져서 그대로 실행됨) |
-| `npm run setup:ocr`에서 `이 컴퓨터용 PaddleOCR 설치 파일이 없어요` | Intel Mac·ARM 윈도우. 이 PC는 `OCR_ENGINE=mock`으로 개발하고 실제 인식은 공용 서버 PC에서 |
-| 사진을 올려도 `행복마트 테스트점` 같은 고정 내용만 채워짐 | 가짜 OCR(Mock) 상태. 서버 창의 `인식(OCR):` 줄이나 브라우저로 `http://127.0.0.1:8080/api/v1/health`의 `ocr` 값 확인 → `mock`이면 서버를 끄고 `npm run setup:ocr` |
-| 서버 창에 `실제 OCR을 켜지 못했어요` | 위쪽 Traceback 확인 → 서버를 끄고 `npm run setup:ocr` 다시. 그동안 업로드는 되고 직접 입력으로 처리됨 |
-| 인식 결과가 엉뚱함 | 사진 문제(흐림·그림자·일부만 찍힘)인지 먼저 확인. 같은 사진을 `dataset/`에 정답과 함께 넣어 `npm run ocr:eval -- -v`로 공유 |
-| 공용 서버 창에 `외부 접속 주소를 만들지 못했어요` | 인터넷 연결 확인. 학교·회사 네트워크가 터널을 막는 경우가 있음 → 핫스팟으로 서버를 다시 켜기. 같은 와이파이 주소는 그대로 됨 |
-| https 주소가 `연결할 수 없음`/에러 | 서버 창이 꺼졌거나 다시 켜서 주소가 바뀐 것 → 서버 창에 뜬 최신 주소로 접속 |
-| `로그인 실패가 너무 많아요` | 같은 계정으로 10분에 10번 틀려서 잠시 막힌 것 → 메시지의 시간만큼 기다리기 (서버를 다시 켜도 풀림) |
-| 공용 서버 화면이 예전 그대로 | 서버 창을 닫고 다시 켜기 (켤 때마다 화면을 새로 빌드함). 그래도 같으면 브라우저 새로고침 |
-| `database is locked` | DB Browser for SQLite에서 저장 안 한 변경이 있으면 생김 → 저장하거나 닫기 |
-| `git push`가 `rejected`로 거절됨 | 그 사이 팀원이 먼저 올린 것 → `git pull` 후 다시 `git push` |
-| git에서 손대지 않은 파일이 통째로 바뀐 것으로 보임 | 줄바꿈(CRLF/LF) 차이. `git add --renormalize .` 한 번 실행 |
+## 4. 앞으로 일정 (안)
+- **10월**: 영수증 데이터 수집·첫 측정, 실사용 필수 기능(알림·구성원 관리·비밀번호), 실기기 점검
+- **11월**: 실제 동아리 실사용 테스트 1~2주 + 정확도 개선 반복
+- **12월 초**: 평가 정리(정확도·사용성·정산 시간 비교), 최종 보고서·발표·시연 영상
