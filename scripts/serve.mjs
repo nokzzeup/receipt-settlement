@@ -1,4 +1,4 @@
-// 공용 서버 모드: 이 PC(노트북)를 팀 서버로 — server-windows.bat / server-mac.command / npm run serve
+// 공용 서버 모드: 이 PC(노트북)를 팀 서버로 — 실행 파일(start-windows.bat / start-mac.command)에서 2번, npm run serve
 //
 // 0) 맨 위에 코드 버전 + .env 의 OCR 설정을 찍는다 (창 캡처 한 장으로 상태를 알 수 있게)
 // 1) 이미 켜져 있으면 접속 주소·OCR 상태만 다시 안내
@@ -9,7 +9,7 @@
 // 6) 외부 접속 터널(Cloudflare Quick Tunnel) → 다른 와이파이·LTE에서도 들어올 https 주소 안내 (tunnel.mjs)
 //    실패해도 같은 와이파이 접속은 그대로 동작. 끄려면 .env 에 SERVER_TUNNEL=off
 //
-// 운영 데이터(DB·영수증 사진·로그인 키)는 server-data/ 에 따로 쌓인다 → 개발(start 파일, npm run dev)과
+// 운영 데이터(DB·영수증 사진·로그인 키)는 server-data/ 에 따로 쌓인다 → 개인 로컬(실행 파일 1번, npm run dev)과
 // 섞이지 않고, 둘을 동시에 켜도 된다. 개발 중에 만든 계정·조직은 여기 없음 (처음엔 회원가입부터)
 import { spawnSync } from 'node:child_process'
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
@@ -38,7 +38,7 @@ import { ensureCloudflared, startQuickTunnel, tunnelEnabled } from './tunnel.mjs
 
 const LOCAL_URL = `http://127.0.0.1:${SERVER_PORT}`
 const NOTICE_EVERY_MS = 60_000
-// 지금 쓰는 외부 주소를 적어두는 파일 → 서버 파일을 또 더블클릭하면 다시 안내할 수 있게
+// 지금 쓰는 외부 주소를 적어두는 파일 → 서버가 켜진 채로 실행 파일을 또 열고 2번을 고르면 다시 안내할 수 있게
 const PUBLIC_URL_FILE = path.join(SERVER_DATA_DIR, 'public-url.txt')
 
 // 서버 모드에서만 쓰는 백엔드 설정 (.env 보다 우선) — 데이터 위치를 개발용과 분리 + 화면도 같이 내보내기

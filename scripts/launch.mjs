@@ -1,4 +1,4 @@
-// 더블클릭 실행(start-windows.bat / start-mac.command)과 `npm start`가 부르는 스크립트
+// 개인 로컬 실행: 더블클릭 실행 파일(start-windows.bat / start-mac.command)에서 1번, `npm start`
 // 1) 이미 실행 중이면 브라우저만 연다
 // 2) 포트가 막혀 있으면(다른 창에 서버가 켜져 있는 등) 이유를 알려주고 멈춘다
 // 3) 처음이거나 패키지 목록이 바뀌었으면(git pull 등) setup부터 자동으로 한다

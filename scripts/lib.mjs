@@ -28,7 +28,7 @@ export const DEV_PORTS = [
 ]
 
 // ---------------------------------------------------------------------------
-// 공용 서버 모드 (npm run serve, server-*.bat): 화면 + API를 포트 하나로, 같은 와이파이의 다른 기기에서도 접속
+// 공용 서버 모드 (npm run serve, 실행 파일에서 2번): 화면 + API를 포트 하나로, 같은 와이파이의 다른 기기에서도 접속
 // 개발 서버(8000·5173)와 포트·데이터가 달라서 둘을 동시에 켜도 된다
 export const SERVER_DATA_DIR = path.join(ROOT, 'server-data') // 운영 DB·영수증 사진·로그인 키
 export const SERVER_PORT = Number(readEnvValue('SERVER_PORT')) || 8080
@@ -171,7 +171,7 @@ export function printProjectLocationWarnings() {
   console.log(`\n[주의] 프로젝트 폴더 위치: ${ROOT}`)
   for (const problem of problems) console.log(`       - ${problem}`)
   console.log('       → 창을 모두 닫고 폴더를 통째로 C:\\dev 처럼 OneDrive 밖의 영문 경로로 옮기는 걸 권장해요')
-  console.log('         (설치물·DB·.env 가 같이 옮겨져서 그대로 실행됨. 바탕 화면엔 server 파일 바로 가기를 두면 편해요)')
+  console.log('         (설치물·DB·.env 가 같이 옮겨져서 그대로 실행됨. 바탕 화면엔 start 파일 바로 가기를 두면 편해요)')
 }
 
 /** 이 폴더 코드의 커밋 번호(앞 7자리). git 프로그램 없이 .git 폴더를 직접 읽는다. 모르면 null */
@@ -333,7 +333,7 @@ export async function ensurePortsFree(ports = DEV_PORTS) {
   if (inUse.size) {
     lines.push(
       `포트 ${[...inUse].join(', ')}를 이미 다른 프로그램이 쓰고 있어요.`,
-      '→ 다른 창에 서버(start·server 파일, npm run dev·serve)가 켜져 있으면 그 창을 닫고 다시 실행하세요.',
+      '→ 다른 창에 같은 서버(start 파일, npm run dev·serve)가 켜져 있으면 그 창을 닫고 다시 실행하세요.',
       '→ 켜둔 창이 없는데도 그러면 PC를 재시작해 보세요.',
     )
   }

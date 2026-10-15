@@ -16,7 +16,6 @@ ASCII_ONLY_FILES = [
     "backend/requirements-ocr.txt",
     "backend/app/db/migrations/script.py.mako",
     "start-windows.bat",
-    "server-windows.bat",
     "scripts/bootstrap/ensure-node.cmd",
 ]
 

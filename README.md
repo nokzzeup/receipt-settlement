@@ -51,16 +51,23 @@ cd receipt-settlement
 |---|---|
 | `start-windows.bat` 더블클릭 | `start-mac.command` 더블클릭 |
 
+창에서 어떻게 켤지 고른다 — 번호를 누르고 Enter (그냥 Enter = 1)
+```
+  1) 개인 로컬    — 이 PC에서만 접속 (개발·테스트용, 데이터: backend/data)
+  2) 팀 공용 서버 — 폰·다른 PC에서도 접속 (이 PC를 켜두기, 데이터: server-data)
+```
+- **1번 개인 로컬**: 서버가 다 뜨면 **브라우저가 자동으로** http://127.0.0.1:5173 을 연다 (localhost:5173도 같음) → 화면 맨 위 **`DEV · 백엔드: API ok · DB ok`** 확인
+- **2번 팀 공용 서버**: 보통 서버 노트북에서만 고른다 → 아래 "팀 공용 서버"
 - 처음이거나 `git pull`로 패키지가 바뀌었으면 **설치부터 자동으로** 한다
-- 서버가 다 뜨면 **브라우저가 자동으로** http://127.0.0.1:5173 을 연다 (localhost:5173도 같음) → 화면 맨 위 **`DEV · 백엔드: API ok · DB ok`** 확인
-- 이미 켜져 있을 때 또 더블클릭하면 브라우저만 다시 연다
+- 이미 켜져 있을 때 또 실행해서 같은 번호를 고르면 브라우저만 다시 연다
 - 실패하면 창이 `계속하려면 아무 키나 누르십시오`에서 멈춘다 → **그 위의 메시지**를 복사해서 공유
 - **끄기: 그 검은 창(터미널)을 닫기**
 - Mac에서 처음 더블클릭할 때 "확인되지 않은 개발자" 경고가 뜨면: 파일 우클릭 → 열기
+- 번호를 안 묻고 바로 켜기: `start-windows.bat server` / `./start-mac.command server` (`dev`도 됨) — Windows 바로 가기 만드는 법은 아래 "팀 공용 서버"
 
 ### 터미널에서
 ```
-npm start        # 더블클릭과 같음 (필요하면 설치 → 실행 → 브라우저 열기)
+npm start        # 더블클릭 → 1번과 같음 (필요하면 설치 → 실행 → 브라우저 열기)
 npm run dev      # 실행만 (브라우저는 직접 열기)
 ```
 - 백엔드 API 문서: http://localhost:8000/docs
@@ -82,10 +89,10 @@ git push                       # 거절되면 git pull 후 다시 push
 
 | 명령 | 하는 일 |
 |---|---|
-| `npm start` | 필요하면 설치 → 백엔드 + 프론트 실행 → 브라우저 열기 (더블클릭 실행과 같음) |
+| `npm start` | 필요하면 설치 → 백엔드 + 프론트 실행 → 브라우저 열기 (더블클릭 → 1번과 같음) |
 | `npm run dev` | 백엔드 + 프론트 실행 |
 | `npm run dev:host` | 폰에서도 접속 가능하게 실행 (아래 "폰에서 테스트") |
-| `npm run serve` | 팀 공용 서버로 실행 (server 파일 더블클릭과 같음, 아래 "팀 공용 서버") |
+| `npm run serve` | 팀 공용 서버로 실행 (더블클릭 → 2번과 같음, 아래 "팀 공용 서버") |
 | `npm test` | 백엔드 테스트 |
 | `npm run setup:ocr` | 실제 OCR(PaddleOCR) 설치 — 공용 서버 PC·OCR 담당만 (아래 "실제 OCR") |
 | `npm run ocr:eval` | OCR + 파싱 정확도 채점 (`dataset/` 사진 + 정답) |
@@ -115,11 +122,15 @@ git push                       # 거절되면 git pull 후 다시 push
 ## 팀 공용 서버 (노트북 한 대를 서버로)
 
 여러 명이 같은 데이터를 쓰려면 PC 한 대(팀장 노트북)를 서버로 켜고, 다른 사람은 그 주소로 접속한다.
-(개발용 실행은 PC마다 데이터가 따로라서 같이 쓰는 용도가 아님)
+(1번 개인 로컬은 PC마다 데이터가 따로라서 같이 쓰는 용도가 아님)
 
 | Windows | Mac | 터미널 |
 |---|---|---|
-| `server-windows.bat` 더블클릭 | `server-mac.command` 더블클릭 | `npm run serve` |
+| `start-windows.bat` 더블클릭 → **2** | `start-mac.command` 더블클릭 → **2** | `npm run serve` |
+
+- 서버 PC(Windows)는 번호 없이 바로 켜지는 바로 가기를 두면 편하다:
+  `start-windows.bat` 우클릭 → (Windows 11은 "추가 옵션 표시" →) 보내기 → 바탕 화면에 바로 가기 만들기 →
+  바탕 화면의 바로 가기 우클릭 → 속성 → **대상** 맨 끝에 한 칸 띄고 `server` 추가 → 확인
 
 1. 창에 뜨는 주소를 확인한다
    ```
@@ -143,8 +154,8 @@ git push                       # 거절되면 git pull 후 다시 push
 
 - 하는 일: (필요하면 설치) → 화면 빌드 → DB 자동 백업 → DB 구조 업데이트 → 서버 실행. **끄기: 창 닫기**
 - **데이터는 `server-data/` 폴더** (DB·영수증 사진·로그인 키). 개발용 `backend/data`와 따로라서 처음엔 회원가입부터. git에 안 올라감
-- 개발용 실행(start 파일)과 **동시에 켜도 됨** — 포트(개발 5173·8000 / 서버 8080)와 데이터가 다름
-- 코드 업데이트: 서버 창 닫기 → `git pull` → 다시 더블클릭 (화면 빌드·DB 업데이트는 자동)
+- 1번 개인 로컬과 **동시에 켜도 됨** (실행 파일을 한 번 더 열어 1번) — 포트(개발 5173·8000 / 서버 8080)와 데이터가 다름
+- 코드 업데이트: 서버 창 닫기 → `git pull` → 다시 실행 → 2 (화면 빌드·DB 업데이트는 자동)
 - 창 맨 위에 `코드 버전`(커밋 번호)과 `.env`의 `인식(OCR) 설정`, 주소 아래에 실제 `인식(OCR)` 상태가 나온다 → 문제가 생기면 창을 맨 위부터 캡처해서 공유
 - 백업: 켤 때마다 DB가 `server-data/backups/`에 자동 저장(최근 10개). 영수증 사진까지 보관하려면 서버를 끄고 `server-data` 폴더째 복사.
   되돌리기: 서버를 끄고 백업 파일을 `server-data/app.db`로 덮어쓴 뒤 다시 켜기
@@ -171,7 +182,7 @@ npm run setup:ocr
 - Windows는 **Microsoft Visual C++ 재배포 가능 패키지(x64)** 가 있어야 한다 (PaddleOCR 일부가 이 패키지의 DLL을 씀).
   없으면 setup:ocr가 먼저 알려줌 → https://aka.ms/vc14/vc_redist.x64.exe 받아서 설치 후 다시 `npm run setup:ocr`
 - 서버를 켜면 창에 `인식(OCR): 실제 OCR(PaddleOCR) 사용 중`이 뜬다 (개발 화면은 맨 위 표시줄에 OCR 상태)
-- `.env`에 `OCR_ENGINE=paddle`만 적어둬도 더블클릭 실행(start·server 파일)이 필요하면 알아서 설치한다
+- `.env`에 `OCR_ENGINE=paddle`만 적어둬도 더블클릭 실행(1번·2번 모두)이 필요하면 알아서 설치한다
 - 끄기: `.env`의 `OCR_ENGINE=mock`
 - 속도: 한 장에 약 2~5초 (2코어 테스트 PC 기준. 노트북은 보통 더 빠름). 여러 명이 동시에 올리면 한 장씩 차례로 처리
 - 인식에 실패해도(모델 오류 등) 업로드는 되고 "직접 입력"으로 처리된다
@@ -191,12 +202,10 @@ npm run ocr:eval -- --refresh   # 전처리·엔진 설정을 바꿨을 때 (OCR
 
 ```
 .
-├── start-windows.bat         더블클릭 실행 — 개발용 (Windows)
-├── start-mac.command         더블클릭 실행 — 개발용 (Mac)
-├── server-windows.bat        더블클릭 실행 — 팀 공용 서버 (Windows)
-├── server-mac.command        더블클릭 실행 — 팀 공용 서버 (Mac)
+├── start-windows.bat         더블클릭 실행 (Windows) — 1) 개인 로컬 / 2) 팀 공용 서버 고르기
+├── start-mac.command         더블클릭 실행 (Mac) — 위와 같음
 ├── server-data/              공용 서버의 DB·영수증 사진·백업 (git 제외, 서버 PC에만 생김)
-├── .tools/                   자동으로 내려받는 도구·모델 — cloudflared, PaddleOCR 모델 (git 제외)
+├── .tools/                   자동으로 내려받는 도구·모델 — Node.js·Python(없을 때), cloudflared, PaddleOCR 모델 (git 제외)
 ├── package.json              실행 명령 모음 (npm start / dev / test ...)
 ├── docs/                     PROJECT.md(범위·규칙·모델), DECISIONS.md(설계 결정과 이유)
 ├── scripts/                  위 명령이 부르는 실행 스크립트 + 정확도 측정 등 유틸

@@ -8,7 +8,7 @@
 // 5) 자가 진단: 모델 파일(약 25MB) 받기 + 시험 이미지 인식
 // 6) .env 의 OCR_ENGINE 을 paddle 로 바꿈 → 다음 실행부터 업로드하면 실제로 인식
 //
-// OCR_ENGINE=paddle 인데 설치가 안 돼 있으면 더블클릭 실행(start·server 파일)이 이 스크립트를 자동으로 부른다
+// OCR_ENGINE=paddle 인데 설치가 안 돼 있으면 더블클릭 실행(start 파일 — 1번·2번 모두)이 이 스크립트를 자동으로 부른다
 import { spawnSync } from 'node:child_process'
 import { readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
@@ -102,4 +102,4 @@ if (!works) {
 writeOcrStamp()
 switchEnvToPaddle()
 console.log('\n실제 OCR 준비 완료! .env 의 OCR_ENGINE 을 paddle 로 바꿨어요 (되돌리려면 mock).')
-console.log('이제 서버를 켜고(server·start 파일) 영수증을 올리면 실제로 인식합니다. 한 장에 몇 초 걸려요.\n')
+console.log('이제 서버를 켜고(start 파일 1번·2번, npm run dev·serve) 영수증을 올리면 실제로 인식합니다. 한 장에 몇 초 걸려요.\n')

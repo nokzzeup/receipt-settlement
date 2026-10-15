@@ -2,7 +2,7 @@
 
 레포 루트의 .env 하나를 백엔드와 프론트(Vite)가 같이 쓴다. 실행 위치와 무관하게 같은 파일을 읽는다.
 
-공용 서버 모드(npm run serve, server-*.bat)는 실행 스크립트가 DATA_DIR·STORAGE_DIR·SERVE_FRONTEND를
+공용 서버 모드(npm run serve, 실행 파일에서 2번)는 실행 스크립트가 DATA_DIR·STORAGE_DIR·SERVE_FRONTEND를
 환경변수로 넘겨서 운영 데이터를 레포 맨 위 server-data/ 에 따로 둔다 → 개발용(backend/data, backend/storage)과 안 섞임
 """
 

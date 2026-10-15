@@ -1,4 +1,4 @@
-# start-mac.command / server-mac.command 가 source 로 불러 쓴다 (PATH를 바꿔야 해서 source).
+# start-mac.command 가 source 로 불러 쓴다 (PATH를 바꿔야 해서 source).
 # Node.js 22.22 이상이 있으면 그대로 쓰고, 없으면 nodejs.org 공식 휴대용 Node.js를 .tools/ 에 받아서
 # (SHA-256 확인, 관리자 권한 필요 없음, 컴퓨터에 설치하지 않음) 이 창에서만 PATH 맨 앞에 둔다.
 

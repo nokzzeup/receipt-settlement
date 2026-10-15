@@ -76,7 +76,7 @@
 
 ### 팀 공용 서버 모드 (2026-10-06)
 - **여러 명이 같은 데이터를 쓰는 방법 = PC 한 대(팀장 노트북)를 서버로.** 다른 PC·폰은 브라우저로 접속만 (APK·앱 설치 없음). OCR도 서버에서만 돈다
-- 실행: `server-windows.bat` / `server-mac.command` / `npm run serve` → setup 확인 → 화면 빌드 → DB 백업 → DB 구조 업데이트 → uvicorn `0.0.0.0:8080` (워커 1개, 자동 재시작 없음)
+- 실행: 실행 파일(`start-windows.bat` / `start-mac.command`)에서 2번 / `npm run serve` → setup 확인 → 화면 빌드 → DB 백업 → DB 구조 업데이트 → uvicorn `0.0.0.0:8080` (워커 1개, 자동 재시작 없음)
 - **화면 + API를 포트 하나로**: 백엔드가 `frontend/dist`를 같이 내보낸다(`SERVE_FRONTEND`, `app/web.py`). `/api` 밖의 주소는 index.html(SPA), 없는 `/api` 주소는 404
 - **운영 데이터 분리**: 실행 스크립트가 `DATA_DIR`·`STORAGE_DIR`을 `server-data/`로 지정 → 개발 DB·로그인 키와 안 섞임. 개발 중 마이그레이션 실험이 운영 데이터를 건드리지 않고, 개발 서버에서 받은 토큰이 공용 서버에서 통하지 않음. 개발 서버와 동시에 켤 수 있음
   - `.env`에 `DATABASE_URL`·`JWT_SECRET`을 직접 넣으면 개발·서버가 같은 값을 쓰게 되므로 비워두는 게 원칙
@@ -176,10 +176,18 @@
   - 컴퓨터에 3.13·3.12가 있으면 그걸 우선 사용. 3.14 이상만 있거나 없으면 휴대용. `SETUP_PYTHON=portable`로 강제 가능
 - Git은 자동 설치하지 않음 (코드를 받을 때만 필요)
 
+### 실행 파일 하나로 합침 (2026-10-15)
+- 더블클릭 실행 파일을 `start-windows.bat` / `start-mac.command` 하나씩으로 합치고, 창에서 **1) 개인 로컬 / 2) 팀 공용 서버**를 고른다 (그냥 Enter = 1). `server-windows.bat` / `server-mac.command`는 삭제
+  - 이유: 파일이 4개라 팀원이 어느 걸 눌러야 하는지 헷갈림. 서버는 보통 서버 노트북 한 대에서만 켜므로 기본값은 개인 로컬
+- 메뉴는 Node 스크립트 `scripts/start.mjs`가 출력 (.bat은 ASCII만 가능) → 고른 번호에 따라 `launch.mjs`(= `npm start`) 또는 `serve.mjs`(= `npm run serve`)를 그대로 실행. 두 스크립트의 동작은 그대로
+- 번호 없이 바로 켜기: 실행 인자 `server` / `dev` (`start-windows.bat server`). 서버 PC는 바탕 화면 바로 가기의 대상 끝에 `server`를 붙여두면 됨
+- 메뉴에서 Ctrl+C = 아무것도 안 켜고 닫기. 입력이 없으면(파이프·자동 실행) 1번. 고른 뒤엔 창 제목이 모드 이름으로 바뀜 (둘을 동시에 켰을 때 구분)
+- npm 명령은 그대로: `npm start`(개인 로컬), `npm run serve`(팀 공용 서버)
+
 ### 실행 구조
 - 루트 `package.json`의 npm 명령 하나로 백엔드와 프론트를 같이 실행 (`concurrently`, Ctrl+C 한 번에 둘 다 종료)
 - 더블클릭 실행 파일(`start-windows.bat`, `start-mac.command`): 패키지 목록(requirements·package-lock)의 지문을 `backend/.venv/setup-stamp.txt`에 남겨두고, 바뀌었으면 실행 전에 setup을 자동으로 다시 한다 → `git pull` 후에도 더블클릭만 하면 됨
-- `start-windows.bat`은 영어로만 쓴다 (cmd.exe가 OS 인코딩으로 읽음). 한글 안내는 Node 스크립트(`scripts/launch.mjs`)가 출력
+- `start-windows.bat`은 영어로만 쓴다 (cmd.exe가 OS 인코딩으로 읽음). 한글 메뉴·안내는 Node 스크립트(`scripts/start.mjs`·`launch.mjs`·`serve.mjs`)가 출력
 - Vite는 `strictPort`: 5173이 이미 쓰이면 다른 포트로 바꾸지 않고 에러 → 주소가 항상 같음
 - Vite는 `127.0.0.1`에 고정: 기본값 `localhost`는 Windows에서 IPv6(`::1`)로만 열려서, IPv4로 확인하는 실행 스크립트가 서버를 못 알아보는 문제가 있었음 (2026-10-04). 브라우저 주소는 `http://127.0.0.1:5173` (localhost도 접속은 됨)
 - 실행·설치 전에 포트 8000/5173을 먼저 점검: 다른 창에 서버가 켜져 있으면(Windows는 실행 중인 파일을 못 지워서 `npm ci`가 중간에 실패) 또는 Windows가 포트를 예약해둔 경우 이유를 한국어로 알려주고 멈춤

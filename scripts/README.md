@@ -5,7 +5,9 @@
 
 | 파일 | 하는 일 |
 |---|---|
-| `launch.mjs` | 더블클릭 실행(`start-windows.bat`/`start-mac.command`)과 `npm start` — 필요하면 setup → dev → 브라우저 열기 |
+| `start.mjs` | 더블클릭 실행(`start-windows.bat`/`start-mac.command`)의 첫 화면 — 1) 개인 로컬 / 2) 팀 공용 서버를 묻고 아래 둘 중 하나 실행 |
+| `launch.mjs` | 개인 로컬 (메뉴 1번, `npm start`) — 필요하면 setup → dev → 브라우저 열기 |
+| `serve.mjs` | 팀 공용 서버 (메뉴 2번, `npm run serve`) — 화면 빌드 → DB 백업·업데이트 → 0.0.0.0:8080 + 외부 접속 주소 |
 | `setup.mjs` | `npm run setup` — .env, 파이썬 가상환경·패키지, DB 생성, npm 패키지 |
 | `dev.mjs` | `npm run dev` — 아래 두 개를 터미널 하나에서 같이 실행 |
 | `backend.mjs` | 마이그레이션 적용 후 FastAPI 실행 (자동 재시작) |

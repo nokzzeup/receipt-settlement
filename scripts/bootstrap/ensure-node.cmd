@@ -1,5 +1,5 @@
 @echo off
-rem Called with CALL from start-windows.bat / server-windows.bat (shares their environment).
+rem Called with CALL from start-windows.bat (shares its environment).
 rem Makes sure Node.js 22.22 or newer can be used:
 rem   1) Node.js already installed and new enough -> use it
 rem   2) otherwise download the official portable Node.js zip from nodejs.org into .tools\

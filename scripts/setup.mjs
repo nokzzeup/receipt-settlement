@@ -124,6 +124,6 @@ writeSetupStamp() // 패키지 목록이 다시 바뀌기 전까지 더블클릭
 if (process.env.SETUP_CALLED_BY_LAUNCHER) {
   console.log('\n준비 완료! 이어서 실행합니다.\n') // 더블클릭 실행 파일이 setup을 부른 경우
 } else {
-  console.log('\n준비 완료! 이제 start 파일 더블클릭(또는 `npm run dev`)으로 실행하세요.')
-  console.log('팀 공용 서버로 켜려면 server 파일 더블클릭(또는 `npm run serve`).\n')
+  console.log('\n준비 완료! 이제 start 파일을 더블클릭해서 1) 개인 로컬 / 2) 팀 공용 서버 중 골라 실행하세요.')
+  console.log('(터미널에서는 개인 로컬 `npm run dev`, 팀 공용 서버 `npm run serve`)\n')
 }
