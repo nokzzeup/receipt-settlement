@@ -21,20 +21,17 @@
 
 **1. Git** — https://git-scm.com (Windows 설치 옵션은 전부 기본값)
 
-**2. Node.js 24 LTS** — https://nodejs.org
+**2. Node.js·Python — 따로 설치 안 해도 됨 (자동)**
+- 더블클릭 실행 파일(아래 "매일: 실행")이 처음 실행될 때 없으면 **이 프로젝트의 `.tools` 폴더에 자동으로 받는다**
+  - Node.js 24 LTS(휴대용, nodejs.org 공식 파일) / Python 3.13(휴대용, uv로 설치) — 받은 파일은 SHA-256으로 확인
+  - **관리자 권한 필요 없음**, 컴퓨터에 설치되지 않고 PATH·레지스트리도 안 건드림. 지우려면 `.tools` 폴더만 지우면 됨
+  - 처음 한 번 인터넷으로 약 100MB를 받느라 몇 분 더 걸린다. Windows는 10(1803) 이상 필요(curl·tar 내장)
+- 이미 Node.js 22.22 이상 / Python 3.13(또는 3.12)이 깔려 있으면 그걸 쓴다 (Python 3.14 이상은 PaddleOCR 미지원이라 휴대용을 대신 씀)
+- 터미널에서 `npm run ...` 명령을 직접 치려면(OCR 담당 등) Node.js 24 LTS를 https://nodejs.org 에서 설치해야 한다
+  - (Windows) PowerShell에서 npm을 치려면 한 번만: `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` → `Y`
+- 컴퓨터 Python이 깨졌거나 휴대용으로 강제하려면: `backend/.venv` 폴더를 지우고, 환경변수 `SETUP_PYTHON=portable`로 setup 실행
 
-**3. Python 3.13** — https://www.python.org/downloads/
-- 다운로드 페이지 맨 위 버튼은 최신 버전(3.14 이상)이니 **목록에서 3.13.x를 골라서** 받을 것
-  (3.14 이상은 3단계에 쓸 PaddleOCR가 아직 지원하지 않음. 3.12는 가능)
-- Windows: 설치 첫 화면에서 **"Add python.exe to PATH"** 체크
-- Mac: python.org 설치 파일 또는 `brew install python@3.13`
-
-**4. (Windows만) PowerShell 스크립트 실행 허용** — 한 번만, 물어보면 `Y`
-```powershell
-Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
-```
-
-**5. 코드 받기** — 비공개 레포라 GitHub 메일로 온 초대를 먼저 수락하고, 처음엔 GitHub 로그인 창이 뜨면 로그인
+**3. 코드 받기** — 비공개 레포라 GitHub 메일로 온 초대를 먼저 수락하고, 처음엔 GitHub 로그인 창이 뜨면 로그인
 ```
 git clone https://github.com/nokzzeup/receipt-settlement.git
 cd receipt-settlement
@@ -43,7 +40,7 @@ cd receipt-settlement
   `C:\dev` 같은 곳에서 받기 (`mkdir C:\dev` → `cd C:\dev` → 위 명령). OneDrive는 설치 파일 수만 개(약 2GB)를 계속 동기화하고,
   한글 경로는 일부 도구(PaddleOCR 등)가 못 여는 경우가 있음. 이런 위치면 실행 창에 `[주의] 프로젝트 폴더 위치`가 뜬다
 
-**6. 실행** — 아래 "매일: 실행"과 같음. 처음 한 번은 설치(파이썬 가상환경·패키지·DB·프론트 패키지)를 자동으로 하느라 2~3분 걸린다.
+**4. 실행** — 아래 "매일: 실행"과 같음. 처음 한 번은 설치(Node.js·Python이 없으면 그것부터, 파이썬 가상환경·패키지·DB·프론트 패키지)를 자동으로 하느라 몇 분 걸린다.
 
 ---
 
@@ -285,8 +282,9 @@ npm run ocr:eval -- --refresh   # 전처리·엔진 설정을 바꿨을 때 (OCR
 | 증상 | 해결 |
 |---|---|
 | `npm : 이 시스템에서 스크립트를 실행할 수 없으므로...` | 위 설치 3번 (`Set-ExecutionPolicy ...`) |
-| setup에서 `Python 3.13(또는 3.12)이 필요합니다` | 3.13 설치 후 **터미널을 새로 열고** 다시 `npm run setup` |
-| setup에서 `Node.js ... 22.22 이상이 필요합니다` | nodejs.org에서 24 LTS 설치 |
+| 실행 창에 `Could not download Node.js` / `휴대용 Python을 설치하지 못했어요` | 인터넷 연결 확인 후 다시 실행. 계속 안 되면 nodejs.org(24 LTS)·python.org(3.13)에서 직접 설치하고 **터미널을 새로 연 뒤** 다시 실행 |
+| 실행 창에 `curl.exe or tar.exe is missing` | Windows 10 1803 이전 버전. nodejs.org에서 Node.js 24 LTS를 직접 설치 |
+| setup에서 `Node.js ... 22.22 이상이 필요합니다` | 터미널에서 직접 실행한 경우. 더블클릭 실행 파일을 쓰거나 nodejs.org에서 24 LTS 설치 |
 | `npm run dev`에서 `먼저 npm run setup 을 실행하세요` | 말 그대로 setup부터 |
 | `포트 8000/5173를 이미 다른 프로그램이 쓰고 있어요` | 다른 창에 서버가 켜져 있음 → 그 창을 닫고 다시 실행. 켜둔 창이 없으면 PC 재시작 |
 | `Windows가 포트 ...를 예약해둬서 쓸 수 없어요` | Docker·WSL 설치 후 생기는 문제. 관리자 PowerShell에서 `net stop winnat` → `net start winnat` 후 다시 실행 |

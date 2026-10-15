@@ -241,9 +241,19 @@ export function runPythonForeground(args, extraEnv = {}, onExit) {
 }
 
 /** npm 실행. `npm run ...`으로 불렸으면 같은 npm을 node로 직접 실행(Windows .cmd 문제 회피) */
+/** 지금 쓰는 Node.js에 딸린 npm (휴대용 Node.js라 PATH에 npm이 없어도 됨) */
+function bundledNpmCli() {
+  const nodeDir = path.dirname(process.execPath)
+  const candidates = [
+    path.join(nodeDir, 'node_modules', 'npm', 'bin', 'npm-cli.js'), // Windows
+    path.join(nodeDir, '..', 'lib', 'node_modules', 'npm', 'bin', 'npm-cli.js'), // Mac·Linux
+  ]
+  return candidates.find((file) => existsSync(file))
+}
+
 export function runNpm(args, cwd) {
-  const npmCli = process.env.npm_execpath
-  if (npmCli && npmCli.endsWith('.js')) {
+  const npmCli = process.env.npm_execpath?.endsWith('.js') ? process.env.npm_execpath : bundledNpmCli()
+  if (npmCli) {
     run(process.execPath, [npmCli, ...args], { cwd })
   } else if (isWindows) {
     run(`npm ${args.join(' ')}`, undefined, { cwd, shell: true })

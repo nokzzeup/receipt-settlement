@@ -19,6 +19,7 @@ import {
   runPython,
   writeSetupStamp,
 } from './lib.mjs'
+import { PORTABLE_PYTHON_VERSION, ensurePortablePython } from './bootstrap/python.mjs'
 
 // 3.14 이상: 3단계 PaddleOCR(paddlepaddle)가 아직 지원 안 함 / 3.15: pydantic도 미지원
 const SUPPORTED_PYTHON = ['3.13', '3.12']
@@ -36,22 +37,33 @@ function pythonVersion(command, args = []) {
   return result.stdout.trim()
 }
 
-function findPython() {
-  const candidates = isWindows
-    ? [['py', ['-3.13']], ['py', ['-3.12']], ['python', []], ['python3', []]]
-    : [['python3.13', []], ['python3.12', []], ['python3', []], ['python', []]]
+/**
+ * 가상환경을 만들 Python: 컴퓨터에 3.13·3.12가 있으면 그것, 없으면 휴대용 Python 3.13을 .tools/ 에 받아서 쓴다.
+ * SETUP_PYTHON=portable 이면 컴퓨터 Python이 있어도 휴대용을 쓴다 (컴퓨터 Python이 깨졌을 때 등)
+ */
+async function findPython() {
   const unsupported = new Set()
-  for (const [command, args] of candidates) {
-    const version = pythonVersion(command, args)
-    if (!version) continue
-    if (SUPPORTED_PYTHON.includes(version)) return { command, args, version }
-    unsupported.add(version)
+  if (process.env.SETUP_PYTHON !== 'portable') {
+    const candidates = isWindows
+      ? [['py', ['-3.13']], ['py', ['-3.12']], ['python', []], ['python3', []]]
+      : [['python3.13', []], ['python3.12', []], ['python3', []], ['python', []]]
+    for (const [command, args] of candidates) {
+      const version = pythonVersion(command, args)
+      if (!version) continue
+      if (SUPPORTED_PYTHON.includes(version)) return { command, args, version }
+      unsupported.add(version)
+    }
+    console.log(
+      unsupported.size
+        ? `컴퓨터의 Python(${[...unsupported].join(', ')})은 지원하지 않는 버전이라 휴대용 Python ${PORTABLE_PYTHON_VERSION}을 씁니다.`
+        : `Python 3.13이 없어서 휴대용 Python ${PORTABLE_PYTHON_VERSION}을 씁니다 (컴퓨터에 설치하지 않음).`,
+    )
   }
-  const found = unsupported.size ? `찾은 버전: ${[...unsupported].join(', ')} → ` : ''
-  fail(
-    `Python 3.13(또는 3.12)이 필요합니다. ${found}python.org에서 3.13을 설치한 뒤 터미널을 새로 열고 다시 실행하세요.\n` +
-      '        (3.14 이상은 3단계에서 쓸 PaddleOCR가 아직 지원하지 않습니다)',
-  )
+  try {
+    return { command: await ensurePortablePython(), args: [], version: PORTABLE_PYTHON_VERSION }
+  } catch (error) {
+    fail(`${error.message}\n        직접 설치하려면 python.org에서 3.13을 설치하고 터미널을 새로 연 뒤 다시 실행하세요.`)
+  }
 }
 
 // 더블클릭 실행 파일이 부른 경우엔 그쪽에서 이미 안내함
@@ -92,7 +104,7 @@ if (existsSync(VENV_PYTHON)) {
   }
 }
 if (!existsSync(VENV_PYTHON)) {
-  const python = findPython()
+  const python = await findPython()
   console.log(`Python ${python.version} 로 backend/.venv 생성`)
   run(python.command, [...python.args, '-m', 'venv', VENV_DIR])
 }

@@ -166,6 +166,16 @@
   - 6단계 전에 올린 영수증은 사진 지문이 없음(NULL) → 1·3번으로만 비교
 - 새 라이브러리 (둘 다 무료, Windows·Mac·Linux 설치 파일 확인): openpyxl 3.1.5(엑셀 파일 만들기, MIT), Pillow 12.3.0(사진 지문, PaddleX가 이미 쓰는 것과 같은 버전)
 
+### Node.js·Python 자동 설치 (2026-10-15)
+- 더블클릭 실행 파일이 Node.js·Python이 없으면 **프로젝트의 `.tools/`에 휴대용으로 받는다** (관리자 권한·시스템 설치·PATH 변경 없음 → 학교·공용 PC에서도 동작, 지우기 쉬움)
+- Node.js: nodejs.org 공식 휴대용 파일 v24.21.0(LTS, 2026-09-07) 고정 + SHA-256 고정값 확인
+  - Windows는 `scripts/bootstrap/ensure-node.cmd` — PowerShell 대신 Windows 10(1803)+ 내장 `curl.exe`·`tar.exe`·`certutil`만 사용 (실행 정책·인코딩 문제 회피, ASCII 전용)
+  - Mac은 `scripts/bootstrap/ensure-node.sh` (curl·shasum·tar). 실행 파일이 source로 불러서 그 창의 PATH 맨 앞에만 넣음
+  - npm은 지금 쓰는 node 옆의 npm-cli.js를 직접 실행 (`lib.mjs` runNpm) → PATH에 npm이 없어도 됨
+- Python: **uv 0.12.21**(Python 설치 도구, 무료·오픈소스 — 관리자 권한 없이 정해진 버전을 받으려고 추가) → CPython 3.13.15를 `.tools/python`에 (`--no-bin --no-registry`, 캐시도 `.tools` 안)
+  - 컴퓨터에 3.13·3.12가 있으면 그걸 우선 사용. 3.14 이상만 있거나 없으면 휴대용. `SETUP_PYTHON=portable`로 강제 가능
+- Git은 자동 설치하지 않음 (코드를 받을 때만 필요)
+
 ### 실행 구조
 - 루트 `package.json`의 npm 명령 하나로 백엔드와 프론트를 같이 실행 (`concurrently`, Ctrl+C 한 번에 둘 다 종료)
 - 더블클릭 실행 파일(`start-windows.bat`, `start-mac.command`): 패키지 목록(requirements·package-lock)의 지문을 `backend/.venv/setup-stamp.txt`에 남겨두고, 바뀌었으면 실행 전에 setup을 자동으로 다시 한다 → `git pull` 후에도 더블클릭만 하면 됨
