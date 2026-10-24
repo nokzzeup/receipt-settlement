@@ -7,7 +7,8 @@
 - 로그인에 성공하면 그 IP + 이메일의 실패 기록은 지운다
 - 서버를 다시 켜면 초기화 (워커 1개 구조라 메모리로 충분)
 
-터널을 거쳐 온 요청의 IP는 uvicorn이 X-Forwarded-For로 실제 접속자 IP로 바꿔준다 (127.0.0.1에서 온 프록시만 신뢰).
+외부 주소(Tailscale Funnel·Cloudflare 터널)를 거쳐 온 요청의 IP는 uvicorn이 X-Forwarded-For로 실제 접속자 IP로
+바꿔준다 (127.0.0.1에서 온 프록시만 신뢰. 둘 다 127.0.0.1에서 접속자 IP를 붙여 넘김).
 """
 
 import math

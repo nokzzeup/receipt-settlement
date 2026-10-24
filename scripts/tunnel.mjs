@@ -1,10 +1,10 @@
-// 외부 접속(다른 와이파이·LTE)용 터널 — Cloudflare Quick Tunnel
+// 외부 접속(다른 와이파이·LTE)용 임시 주소 — Cloudflare Quick Tunnel
 //
 // 공용 서버(serve.mjs)가 켜지면 cloudflared를 같이 띄워서 https://무작위.trycloudflare.com 주소를 받는다.
 // 그 주소로 들어온 요청은 Cloudflare를 거쳐 이 PC의 서버(127.0.0.1:포트)로 전달된다.
 // - 무료, 계정·도메인 필요 없음, https라서 폰에서 앱처럼 설치(홈 화면 추가)도 가능
 // - 대신 켤 때마다 주소가 바뀌고, Cloudflare는 "테스트·개발용, 가동 보장 없음"이라고 안내함
-//   → 고정 주소가 필요해지면(실사용 테스트) Tailscale Funnel 등으로 바꾼다 (docs/DECISIONS.md)
+//   → 서버 PC에 Tailscale이 있으면 고정 주소(tailscale.mjs)를 대신 쓴다 (docs/DECISIONS.md)
 //
 // cloudflared 실행 파일은 처음 한 번 공식 GitHub 릴리스에서 내려받아 .tools/ 에 둔다 (git 제외).
 // 버전을 고정하고, 내려받은 파일의 SHA-256이 아래 값과 다르면 실행하지 않는다.
@@ -49,9 +49,17 @@ const BINARY = path.join(TOOLS_DIR, isWindows ? 'cloudflared.exe' : 'cloudflared
 const URL_PATTERN = /https:\/\/[-a-z0-9]+\.trycloudflare\.com/
 const READY_TIMEOUT_MS = 60_000
 
-/** 터널 사용 여부: .env 의 SERVER_TUNNEL=off 면 끔 (기본 켬) */
-export function tunnelEnabled() {
-  return (readEnvValue('SERVER_TUNNEL') ?? '').trim().toLowerCase() !== 'off'
+// .env 의 SERVER_TUNNEL 값 → 외부 접속 방식
+//   (비움) auto: Tailscale이 설치돼 있으면 고정 주소, 없으면 Cloudflare 임시 주소
+//   tailscale: 고정 주소만 / cloudflare: 임시 주소만 / off: 같은 와이파이 전용
+const TUNNEL_SETTINGS = { '': 'auto', auto: 'auto', on: 'auto', tailscale: 'tailscale', cloudflare: 'cloudflare', off: 'off' }
+
+/** 외부 접속 방식: 'auto' | 'tailscale' | 'cloudflare' | 'off' (모르는 값이면 안내 후 auto) */
+export function tunnelSetting() {
+  const raw = (readEnvValue('SERVER_TUNNEL') ?? '').trim().toLowerCase()
+  if (Object.hasOwn(TUNNEL_SETTINGS, raw)) return TUNNEL_SETTINGS[raw]
+  console.log(`\n[주의] .env 의 SERVER_TUNNEL="${raw}" 는 모르는 값이에요 → 비워두기(자동), tailscale, cloudflare, off 중 하나`)
+  return 'auto'
 }
 
 /** cloudflared 실행 파일 경로. 없으면 내려받는다. 실패하면 Error */

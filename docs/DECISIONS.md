@@ -91,13 +91,26 @@
 - **Cloudflare Quick Tunnel**을 공용 서버에 기본으로 붙임: 서버가 뜨면 `cloudflared tunnel --url http://127.0.0.1:8080` → `https://….trycloudflare.com` 주소 안내 (`scripts/tunnel.mjs`)
   - 고른 이유: 무료, 계정·도메인·설치 없이 자동화 가능, https라 PWA 설치도 됨. 학교 와이파이의 기기 간 차단도 우회
   - 감수한 것: **켤 때마다 주소가 바뀜**(새로 공유, 다시 로그인), Cloudflare 안내상 테스트·개발용·가동 보장 없음, 동시 요청 200개 제한
-  - 비교: Tailscale Funnel(고정 주소, 무료, 모든 플랜 — 단 서버 PC에 Tailscale 설치·로그인·Funnel 켜기 필요) → 실사용 테스트 때 고정 주소가 필요하면 전환. ngrok 무료(고정 주소 1개지만 월 1GB·2만 요청 → 사진 업로드에 부족), Cloudflare 정식 터널(도메인 필요 = 유료)은 제외
+  - 비교: Tailscale Funnel(고정 주소, 무료, 모든 플랜 — 단 서버 PC에 Tailscale 설치·로그인·Funnel 켜기 필요) → 실사용 테스트 때 고정 주소가 필요하면 전환 (**2026-10-24 전환**, 아래 "고정 주소"). ngrok 무료(고정 주소 1개지만 월 1GB·2만 요청 → 사진 업로드에 부족), Cloudflare 정식 터널(도메인 필요 = 유료)은 제외
 - cloudflared는 공식 GitHub 릴리스 **2026.10.0**으로 고정, 처음 한 번 `.tools/`에 내려받고 **SHA-256 확인**(다르면 실행 안 함). `.env`의 `CLOUDFLARED_PATH`로 직접 설치한 것 사용 가능
 - 터널이 안 만들어져도(네트워크 차단 등) 서버는 계속 → 같은 와이파이 접속은 그대로. `SERVER_TUNNEL=off`로 끔
 - 기본으로 켠 이유: 사용자가 원하는 게 "어디서나 접속"이고, 주소가 무작위라 알려준 사람만 들어옴. 대신 인터넷 공개에 맞춰 보강:
   - **로그인 실패 제한**: 같은 IP+이메일 10분 10회, 같은 IP 10분 30회 → 429 (`app/core/ratelimit.py`, 메모리). 터널을 거친 요청도 uvicorn이 X-Forwarded-For(127.0.0.1에서 온 것만 신뢰)로 실제 IP를 씀
   - 공용 서버 모드에서 **API 문서(/docs·/openapi.json) 끔**
 - 남은 위험(알고 감수): 회원가입은 누구나 가능(조직 데이터는 초대 코드 없이는 못 봄), 서버 = 개인 노트북
+
+### 고정 주소 — Tailscale Funnel (2026-10-24)
+- 실사용 테스트를 팀 공용 서버로 하기로 함 → 켤 때마다 바뀌는 임시 주소 대신 **고정 주소** `https://<기기 이름>.<tailnet 이름>.ts.net`
+  - 이유: 주소가 그대로여야 동아리 사람들에게 한 번만 알리면 되고, 폰 "홈 화면에 추가"·로그인(주소마다 따로 저장됨)이 유지됨
+  - 무료(모든 요금제). 서버 PC만 Tailscale 설치·로그인, 접속하는 사람은 설치 없음. 첫 실행 때 tailnet에서 Funnel 허용(HTTPS 인증서 + funnel 권한) 한 번
+- 실행: 서버 모드가 `tailscale funnel 8080`을 **포그라운드 자식 프로세스**로 띄움 (`scripts/tailscale.mjs`). `--bg`(계속 켜두기)는 안 씀
+  - 프로세스가 끝나면 tailscaled가 그 Funnel 설정을 지움 (tailscale 1.104.2 소스: 포그라운드 세션이 끝나면 DeleteForegroundSession) → 서버가 꺼져 있을 땐 인터넷에 안 열리고 남는 설정도 없음
+  - 성공 판정: CLI가 `https://<DNS 이름>/` 줄을 출력할 때. 처음이라 허용이 필요하면 CLI가 찍는 login.tailscale.com 링크를 브라우저로 열고, 허용될 때까지 기다림(그동안 같은 와이파이 접속은 됨)
+  - Windows는 같은 사용자면 관리자 권한 없이 동작 (LocalAPI: 접속이 허용된 Windows 사용자는 읽기·쓰기 가능)
+- 고르기: `.env`의 `SERVER_TUNNEL`을 비우면 자동 — tailscale 명령이 있으면 고정 주소, 없으면 Cloudflare 임시 주소(팀원 PC는 그대로). `tailscale`·`cloudflare`·`off`로 지정 가능
+  - 고정 주소가 실패하면(로그아웃·연결 꺼짐·직접 해둔 serve 설정과 충돌) 이유와 고치는 방법만 안내하고 **임시 주소로 대신 열지 않음** — 공유한 주소와 다른 주소가 생겨 헷갈리지 않게
+- 접속자 IP: Funnel도 127.0.0.1에서 X-Forwarded-For(실제 접속자 IP)를 붙여 넘김 → 로그인 실패 제한이 그대로 동작
+- 감수: Funnel 대역폭 제한(공개 수치 없음), 처음 켠 직후 공개 DNS 반영까지 최대 10분, 인증서 공개 기록(Certificate Transparency)에 주소가 남아 모르는 사람도 찾아올 수 있음(로그인·초대 코드로 보호). Mac 서버는 미확인
 
 ### 실제 OCR (3단계, 2026-10-08)
 - **PaddleOCR 3.7.0 + paddlepaddle 3.3.1 고정** (`backend/requirements-ocr.txt`, ASCII). Windows x64·Apple Silicon Mac·Linux용 Python 3.12/3.13 설치 파일 확인. Intel Mac·ARM 윈도우는 설치 파일이 없음 → Mock

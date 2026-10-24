@@ -6,8 +6,10 @@
 // 3) 화면 빌드(frontend/dist) → 4) 운영 DB 자동 백업 → DB 구조 업데이트
 // 5) 0.0.0.0:포트로 실행 (화면 + API를 포트 하나로) → 같은 와이파이의 다른 PC·폰이 접속할 주소 + OCR 상태 안내
 //    실제 OCR이면 켤 때 모델을 미리 불러오느라 준비가 늦다 → 시간 제한 없이 기다리며 1분마다 안내
-// 6) 외부 접속 터널(Cloudflare Quick Tunnel) → 다른 와이파이·LTE에서도 들어올 https 주소 안내 (tunnel.mjs)
-//    실패해도 같은 와이파이 접속은 그대로 동작. 끄려면 .env 에 SERVER_TUNNEL=off
+// 6) 다른 와이파이·LTE에서도 들어올 https 주소 안내
+//    - 이 PC에 Tailscale이 있으면 고정 주소 (Tailscale Funnel, tailscale.mjs) — 다시 켜도 그대로
+//    - 없으면 임시 주소 (Cloudflare Quick Tunnel, tunnel.mjs) — 켤 때마다 바뀜
+//    실패해도 같은 와이파이 접속은 그대로 동작. .env 의 SERVER_TUNNEL 로 고르거나 끔 (tunnel.mjs tunnelSetting)
 //
 // 운영 데이터(DB·영수증 사진·로그인 키)는 server-data/ 에 따로 쌓인다 → 개인 로컬(실행 파일 1번, npm run dev)과
 // 섞이지 않고, 둘을 동시에 켜도 된다. 개발 중에 만든 계정·조직은 여기 없음 (처음엔 회원가입부터)
@@ -34,7 +36,8 @@ import {
   runPythonForeground,
   startupSummary,
 } from './lib.mjs'
-import { ensureCloudflared, startQuickTunnel, tunnelEnabled } from './tunnel.mjs'
+import { findTailscale, startFunnel, statusAdvice, tailscaleStatus } from './tailscale.mjs'
+import { ensureCloudflared, startQuickTunnel, tunnelSetting } from './tunnel.mjs'
 
 const LOCAL_URL = `http://127.0.0.1:${SERVER_PORT}`
 const NOTICE_EVERY_MS = 60_000
@@ -95,14 +98,86 @@ async function printServerInfo({ elsewhere = false } = {}) {
 }
 
 function printPublicAddress(url) {
-  console.log(`\n>>> 다른 와이파이·LTE에서도 접속:  ${url}`)
+  console.log(`\n>>> 다른 와이파이·LTE에서도 접속 (임시 주소):  ${url}`)
   console.log('    - 서버를 켤 때마다 주소가 바뀌어요 → 켤 때마다 이 주소를 팀에 다시 공유하세요')
+  console.log('    - 바뀌지 않는 고정 주소를 쓰려면: 이 PC에 Tailscale 설치·로그인 (README "고정 주소")')
   console.log('    - 주소를 아는 사람은 누구나 로그인 화면까지 들어올 수 있어요 (데이터는 로그인 + 초대 코드로 보호)')
   console.log('    - 접속 기록(누가 어떤 요청을 했는지)이 아래에 계속 찍힙니다\n')
 }
 
-/** 외부 접속 터널을 띄우고 주소를 안내한다. 실패해도 서버는 계속 (같은 와이파이 접속은 그대로) */
-async function startTunnel() {
+function printFixedAddress(url) {
+  console.log(`\n>>> 어디서나 접속 (고정 주소):  ${url}`)
+  console.log('    - 서버를 다시 켜도 주소가 그대로예요 → 팀·동아리에 한 번만 공유. 폰에서 "홈 화면에 추가"하면 앱처럼 씀')
+  console.log('    - 같은 와이파이에서도 이 주소를 쓰는 게 좋아요 (https라 안전, 로그인 유지)')
+  console.log('    - 처음 켠 직후엔 바깥(LTE 등)에서 열리기까지 몇 분(최대 10분) 걸릴 수 있어요. 첫 접속은 조금 느림')
+  console.log('    - 서버를 끄면 이 주소도 닫혀요. 주소를 아는 사람은 누구나 로그인 화면까지 들어올 수 있어요 (데이터는 로그인 + 초대 코드로 보호)')
+  console.log('    - 접속 기록(누가 어떤 요청을 했는지)이 아래에 계속 찍힙니다\n')
+}
+
+/** 외부 접속 주소를 연다. 띄운 자식 프로세스(없으면 null). 실패해도 서버는 계속 (같은 와이파이 접속은 그대로) */
+async function startPublicAddress() {
+  const setting = tunnelSetting()
+  if (setting === 'off') {
+    console.log('    - 외부 접속은 꺼져 있어요 (.env 의 SERVER_TUNNEL=off)')
+    console.log('    - 접속 기록(누가 어떤 요청을 했는지)이 아래에 계속 찍힙니다\n')
+    return null
+  }
+  if (setting !== 'cloudflare') {
+    const tailscale = findTailscale()
+    if (tailscale) return startFixedAddress(tailscale)
+    if (setting === 'tailscale') {
+      console.log('\n[주의] 고정 주소를 쓰도록 돼 있는데(.env 의 SERVER_TUNNEL=tailscale) Tailscale이 설치돼 있지 않아요.')
+      console.log('       → README "고정 주소"대로 설치·로그인하고 서버를 다시 켜세요. 같은 와이파이 접속은 그대로 됩니다.\n')
+      return null
+    }
+  }
+  return startTemporaryAddress()
+}
+
+/** 고정 주소: Tailscale Funnel. 실패하면 이유와 고치는 방법을 안내 (임시 주소로 대신 열지 않음 — 주소가 섞이지 않게) */
+async function startFixedAddress(binary) {
+  console.log('\n    고정 주소(Tailscale Funnel)를 여는 중...')
+  const status = await tailscaleStatus(binary)
+  if (status.state !== 'running') {
+    console.log(`\n[주의] 고정 주소를 열지 못했어요: ${statusAdvice(status)}`)
+    console.log('       고친 뒤 서버 창을 닫고 다시 켜세요. 같은 와이파이 접속은 그대로 됩니다.')
+    console.log('       (임시 주소로 대신 열려면 .env 에 SERVER_TUNNEL=cloudflare)\n')
+    return null
+  }
+
+  const funnel = startFunnel(binary, SERVER_PORT, status.dnsName, {
+    onEnableLink: (link) => {
+      console.log('\n>>> 처음 한 번만: Tailscale에서 Funnel(인터넷에 공개) 사용을 허용해야 해요')
+      console.log(`    브라우저로 연 페이지에서 허용(Enable)을 누르세요: ${link}`)
+      console.log('    허용하면 자동으로 이어서 진행돼요. 그동안에도 같은 와이파이 접속은 됩니다.')
+      openBrowser(link)
+    },
+  })
+  tunnelChild = funnel.child // 기다리는 중에 서버가 꺼져도 같이 끄도록 바로 등록
+  const { ok } = await funnel.ready
+  if (!ok) {
+    funnel.child.kill()
+    console.log('\n[주의] 고정 주소(Tailscale Funnel)를 열지 못했어요. 같은 와이파이 접속은 그대로 됩니다.')
+    console.log(`       tailscale 메시지:\n${funnel.recentLog().replace(/^/gm, '         ') || '         (없음)'}`)
+    console.log('       → 다른 창에 서버가 켜져 있으면 그 창을 닫고 다시 켜기 / 직접 tailscale serve·funnel 설정을 해둔 적이 있으면')
+    console.log('         PowerShell에서 tailscale funnel reset 후 다시 켜기 / 그래도 안 되면 이 창을 캡처해서 보내주세요\n')
+    return null
+  }
+
+  writeFileSync(PUBLIC_URL_FILE, funnel.url)
+  printFixedAddress(funnel.url)
+  funnel.child.on('exit', () => {
+    rmSync(PUBLIC_URL_FILE, { force: true })
+    if (!shuttingDown) {
+      console.log('\n[주의] 고정 주소(Tailscale)가 끊겼어요. 같은 와이파이 접속은 계속 됩니다.')
+      console.log('       Tailscale 연결을 확인하고 서버 창을 닫았다가 다시 켜세요.\n')
+    }
+  })
+  return funnel.child
+}
+
+/** 임시 주소: Cloudflare Quick Tunnel */
+async function startTemporaryAddress() {
   console.log('\n    다른 와이파이·LTE에서 들어올 주소를 만드는 중... (최대 1분)')
   let binary
   try {
@@ -114,6 +189,7 @@ async function startTunnel() {
   }
 
   const tunnel = startQuickTunnel(binary, LOCAL_URL)
+  tunnelChild = tunnel.child
   const { url, connected } = await tunnel.ready
   if (!url) {
     tunnel.child.kill()
@@ -227,9 +303,4 @@ while (!(await isServerRunning())) {
 
 await printServerInfo()
 openBrowser(LOCAL_URL)
-if (tunnelEnabled()) {
-  tunnelChild = await startTunnel()
-} else {
-  console.log('    - 외부 접속(터널)은 꺼져 있어요 (.env 의 SERVER_TUNNEL=off)')
-  console.log('    - 접속 기록(누가 어떤 요청을 했는지)이 아래에 계속 찍힙니다\n')
-}
+await startPublicAddress()
