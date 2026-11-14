@@ -50,3 +50,6 @@ Thumbs.db
 .vscode/*
 !.vscode/extensions.json
 *.log
+
+# 개인 테스트용 영수증 사진 모음 (카드번호 등 포함) — 커밋 금지
+test/

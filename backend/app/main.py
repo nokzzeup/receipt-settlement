@@ -18,7 +18,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     if settings.serve_frontend and settings.ocr_engine == "paddle":
         # 공용 서버: 첫 업로드가 느리지 않게 켤 때 OCR 모델을 미리 불러온다 (실패해도 서버는 뜸 → 직접 입력)
         # 개발 모드는 코드 저장할 때마다 재시작되므로 미리 불러오지 않음 (첫 업로드 때 불러옴)
-        await anyio.to_thread.run_sync(get_ocr_engine)
+        get_ocr_engine()
     yield
 
 
